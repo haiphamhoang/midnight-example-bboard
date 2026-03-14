@@ -83,9 +83,10 @@ export class BBoardSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public takeDown(): Ledger {
+  public takeDown(messageId: bigint): Ledger {
     this.circuitContext = this.contract.impureCircuits.takeDown(
       this.circuitContext,
+      messageId,
     ).context;
     return ledger(this.circuitContext.currentQueryContext.state);
   }
