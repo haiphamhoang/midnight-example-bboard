@@ -1,1 +1,1 @@
-{"mcpServers":{"compact-contract":{"command":"npx","args":["-y","midnight-mcp@latest"],"alwaysAllow":[]}}}
+{"mcpServers":{"compact-contract":{"command":"npx","args":["-y","midnight-mcp@latest"],"alwaysAllow":["midnight-get-latest-syntax"]}}}
