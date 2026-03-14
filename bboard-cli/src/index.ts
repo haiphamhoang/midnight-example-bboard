@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
+/*`
  * This file is the main driver for the Midnight bulletin board example.
  * The entry point is the run function, at the end of the file.
  * We expect the startup files (testnet-remote.ts, standalone.ts, etc.) to
@@ -23,6 +23,7 @@
 
 import { createInterface, type Interface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { readFile } from 'node:fs/promises';
 import { WebSocket } from 'ws';
 import {
   BBoardAPI,
@@ -244,7 +245,8 @@ const WALLET_LOOP_QUESTION = `
 You can do one of the following:
   1. Build a fresh wallet
   2. Build wallet from a seed
-  3. Exit
+  3. Build wallet from wallet.txt file
+  4. Exit
 Which would you like to do? `;
 
 const buildWallet = async (config: Config, rli: Interface, logger: Logger): Promise<string | undefined> => {
@@ -259,6 +261,10 @@ const buildWallet = async (config: Config, rli: Interface, logger: Logger): Prom
       case '2':
         return await rli.question('Enter your wallet seed: ');
       case '3':
+        const walletFile = 'wallet.txt';
+        const walletData = await readFile(walletFile, 'utf8');
+        return walletData;
+      case '4':
         logger.info('Exiting...');
         return undefined;
       default:

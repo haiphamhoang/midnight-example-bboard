@@ -1,3 +1,6 @@
+# environment variables
+wallet.txt
+
 # Node.js
 node_modules/
 dist/
