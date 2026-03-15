@@ -61,6 +61,8 @@ export circuit takeDown(messageId: Uint<64>): Opaque<"string"> {
   
   assert(message.owner == publicKey(localSecretKey()), "Attempted to take down message, but not the current owner");
   const formerMsg = message.content.value;
+  messageMap.remove(disclose(messageId));
+
   return formerMsg;
 }
 
