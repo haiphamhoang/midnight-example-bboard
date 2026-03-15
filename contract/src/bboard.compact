@@ -58,7 +58,7 @@ export circuit post(newMessage: Opaque<"string">): [] {
 export circuit takeDown(messageId: Uint<64>): Opaque<"string"> {
   assert(messageMap.member(disclose(messageId)), "Message id not found");
   const message = messageMap.lookup(disclose(messageId)) as Message;
-  
+
   assert(message.owner == publicKey(localSecretKey()), "Attempted to take down message, but not the current owner");
   const formerMsg = message.content.value;
   messageMap.remove(disclose(messageId));

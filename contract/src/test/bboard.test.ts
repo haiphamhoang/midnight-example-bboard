@@ -55,8 +55,8 @@ describe("BBoard smart contract", () => {
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(2n);
     expect(ledgerState.messageMap.size()).toEqual(1n);
-    const postedMessage = ledgerState.messageMap.lookup(0n);
-    expect(postedMessage.id).toEqual(0n);
+    const postedMessage = ledgerState.messageMap.lookup(1n);
+    expect(postedMessage.id).toEqual(1n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
     expect(postedMessage.owner).toEqual(simulator.publicKey());
@@ -69,7 +69,7 @@ describe("BBoard smart contract", () => {
     const message =
       "Prince Raoden of Arelon awoke early that morning, completely unaware that he had been damned for all eternity.";
     simulator.post(message);
-    simulator.takeDown(0n);
+    simulator.takeDown(1n);
     // the private ledger state shouldn't change
     expect(initialPrivateState).toEqual(simulator.getPrivateState());
     // And all the correct things should have been updated in the public ledger state
@@ -83,7 +83,7 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     const initialPrivateState = simulator.getPrivateState();
     simulator.post("Life before Death.");
-    simulator.takeDown(0n);
+    simulator.takeDown(1n);
     const message = "Strength before Weakness.";
     simulator.post(message);
     // the private ledger state shouldn't change
@@ -92,8 +92,8 @@ describe("BBoard smart contract", () => {
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
     expect(ledgerState.messageMap.size()).toEqual(1n);
-    const postedMessage = ledgerState.messageMap.lookup(1n);
-    expect(postedMessage.id).toEqual(1n);
+    const postedMessage = ledgerState.messageMap.lookup(2n);
+    expect(postedMessage.id).toEqual(2n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
     expect(postedMessage.owner).toEqual(simulator.publicKey());
@@ -103,15 +103,15 @@ describe("BBoard smart contract", () => {
   it("lets a different user post a message after taking down the first", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     simulator.post("Remember, the past need not become our future as well.");
-    simulator.takeDown(0n);
+    simulator.takeDown(1n);
     simulator.switchUser(randomBytes(32));
     const message = "Joy was more than just an absence of discomfort.";
     simulator.post(message);
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
     expect(ledgerState.messageMap.size()).toEqual(1n);
-    const postedMessage = ledgerState.messageMap.lookup(1n);
-    expect(postedMessage.id).toEqual(1n);
+    const postedMessage = ledgerState.messageMap.lookup(2n);
+    expect(postedMessage.id).toEqual(2n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
     expect(postedMessage.owner).toEqual(simulator.publicKey());
@@ -129,11 +129,11 @@ describe("BBoard smart contract", () => {
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
     expect(ledgerState.messageMap.size()).toEqual(2n);
-    const firstMessage = ledgerState.messageMap.lookup(0n);
-    expect(firstMessage.id).toEqual(0n);
+    const firstMessage = ledgerState.messageMap.lookup(1n);
+    expect(firstMessage.id).toEqual(1n);
     expect(firstMessage.content.is_some).toEqual(true);
-    const secondMessage = ledgerState.messageMap.lookup(1n);
-    expect(secondMessage.id).toEqual(1n);
+    const secondMessage = ledgerState.messageMap.lookup(2n);
+    expect(secondMessage.id).toEqual(2n);
     expect(secondMessage.content.is_some).toEqual(true);
   });
 
@@ -145,11 +145,11 @@ describe("BBoard smart contract", () => {
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
     expect(ledgerState.messageMap.size()).toEqual(2n);
-    const firstMessage = ledgerState.messageMap.lookup(0n);
-    expect(firstMessage.id).toEqual(0n);
+    const firstMessage = ledgerState.messageMap.lookup(1n);
+    expect(firstMessage.id).toEqual(1n);
     expect(firstMessage.content.is_some).toEqual(true);
-    const secondMessage = ledgerState.messageMap.lookup(1n);
-    expect(secondMessage.id).toEqual(1n);
+    const secondMessage = ledgerState.messageMap.lookup(2n);
+    expect(secondMessage.id).toEqual(2n);
     expect(secondMessage.content.is_some).toEqual(true);
   });
 
@@ -159,7 +159,7 @@ describe("BBoard smart contract", () => {
       "Sometimes a hypocrite is nothing more than a man in the process of changing.",
     );
     simulator.switchUser(randomBytes(32));
-    expect(() => simulator.takeDown(0n)).toThrow(
+    expect(() => simulator.takeDown(1n)).toThrow(
       "failed assert: Attempted to take down message, but not the current owner",
     );
   });
@@ -171,15 +171,15 @@ describe("BBoard smart contract", () => {
     simulator.post("Third message");
 
     // Take down the second message
-    simulator.takeDown(1n);
+    simulator.takeDown(2n);
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(4n);
     expect(ledgerState.messageMap.size()).toEqual(2n);
 
     // First and third messages should still exist
-    expect(ledgerState.messageMap.member(0n)).toEqual(true);
-    expect(ledgerState.messageMap.member(1n)).toEqual(false);
-    expect(ledgerState.messageMap.member(2n)).toEqual(true);
+    expect(ledgerState.messageMap.member(1n)).toEqual(true);
+    expect(ledgerState.messageMap.member(2n)).toEqual(false);
+    expect(ledgerState.messageMap.member(3n)).toEqual(true);
   });
 
   it("doesn't let you take down a non-existent message", () => {
@@ -194,7 +194,7 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     // Manually set the state to CLOSED (this would normally be done by a closeBoard circuit)
     const ledgerState = simulator.getLedger();
-    // Note: We can't directly modify the ledger state in the simulator,
+    // TODO: We can't directly modify the ledger state in the simulator,
     // but this test demonstrates the expected behavior
     // In a real scenario, you'd have a closeBoard circuit
     expect(ledgerState.state).toEqual(State.OPEN);
