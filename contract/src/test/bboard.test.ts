@@ -43,6 +43,7 @@ describe("BBoard smart contract", () => {
     expect(initialLedgerState.sequence).toEqual(1n);
     expect(initialLedgerState.messageMap.size()).toEqual(0n);
     expect(initialLedgerState.state).toEqual(State.OPEN);
+    expect(initialLedgerState.maxMessages).toEqual(10n);
     const initialPrivateState = simulator.getPrivateState();
     expect(initialPrivateState).toEqual({ secretKey: key });
   });
@@ -194,13 +195,63 @@ describe("BBoard smart contract", () => {
     );
   });
 
+  it("closes the board when maxMessages is reached", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    // maxMessages is 10, so post 10 messages to close the board
+    for (let i = 0; i < 10; i++) {
+      simulator.post(`Message ${i + 1}`);
+    }
+    const ledgerState = simulator.getLedger();
+    expect(ledgerState.messageMap.size()).toEqual(10n);
+    expect(ledgerState.state).toEqual(State.CLOSED);
+  });
+
+  it("reopens the board when messages are taken down below maxMessages", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    // Post 10 messages to close the board
+    for (let i = 0; i < 10; i++) {
+      simulator.post(`Message ${i + 1}`);
+    }
+    expect(simulator.getLedger().state).toEqual(State.CLOSED);
+
+    // Take down one message to reopen the board
+    simulator.takeDown(1n);
+    const ledgerState = simulator.getLedger();
+    expect(ledgerState.messageMap.size()).toEqual(9n);
+    expect(ledgerState.state).toEqual(State.OPEN);
+  });
+
   it("doesn't let you post when the board is closed", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    // Manually set the state to CLOSED (this would normally be done by a closeBoard circuit)
+    // Post 10 messages to close the board
+    for (let i = 0; i < 10; i++) {
+      simulator.post(`Message ${i + 1}`);
+    }
+    expect(simulator.getLedger().state).toEqual(State.CLOSED);
+
+    // Attempting to post when closed should fail
+    expect(() => simulator.post("This should fail")).toThrow(
+      "failed assert: Attempted to post to an closed board",
+    );
+  });
+
+  it("allows posting again after board reopens", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    // Post 10 messages to close the board
+    for (let i = 0; i < 10; i++) {
+      simulator.post(`Message ${i + 1}`);
+    }
+    expect(simulator.getLedger().state).toEqual(State.CLOSED);
+
+    // Take down two messages to reopen
+    simulator.takeDown(1n);
+    simulator.takeDown(2n);
+    expect(simulator.getLedger().state).toEqual(State.OPEN);
+
+    // Should be able to post again
+    simulator.post("Posted after reopening");
     const ledgerState = simulator.getLedger();
-    // TODO: We can't directly modify the ledger state in the simulator,
-    // but this test demonstrates the expected behavior
-    // In a real scenario, you'd have a closeBoard circuit
+    expect(ledgerState.messageMap.size()).toEqual(9n);
     expect(ledgerState.state).toEqual(State.OPEN);
   });
 });
