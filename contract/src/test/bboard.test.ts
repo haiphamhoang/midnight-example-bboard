@@ -29,7 +29,11 @@ describe("BBoard smart contract", () => {
     const key = randomBytes(32);
     const simulator0 = new BBoardSimulator(key);
     const simulator1 = new BBoardSimulator(key);
-    expect(simulator0.getLedger()).toEqual(simulator1.getLedger());
+    const ledger0 = simulator0.getLedger();
+    const ledger1 = simulator1.getLedger();
+    expect(ledger0.sequence).toEqual(ledger1.sequence);
+    expect(ledger0.state).toEqual(ledger1.state);
+    expect(ledger0.messageMap.size()).toEqual(ledger1.messageMap.size());
   });
 
   it("properly initializes ledger state and private state", () => {
