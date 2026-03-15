@@ -109,13 +109,13 @@ export class BBoardAPI implements DeployedBBoardAPI {
         }> = [];
 
         // Iterate through messageMap using Symbol.iterator
-        for (const [id, message] of ledgerState.messageMap) {
+        for (const [, message] of ledgerState.messageMap) {
           // Compute the public key for this message using its sequence (message.id)
           const messagePublicKey = BBoard.pureCircuits.publicKey(
             privateState.secretKey,
-            convertFieldToBytes(32, message.id, 'api/src/index.ts')
+            convertFieldToBytes(32, message.id, 'api/src/index.ts'),
           );
-          
+
           messages.push({
             id: message.id,
             content: message.content.is_some ? message.content.value : undefined,
@@ -167,27 +167,27 @@ export class BBoardAPI implements DeployedBBoardAPI {
   }
 
   /**
- * Attempts to take down a specific message from the bulletin board.
- *
- * @param messageId The ID of the message to take down.
- *
- * @remarks
- * This method can fail during local circuit execution if the message ID doesn't exist,
- * or if the message isn't owned by the owner computed from the current private state.
- */
-async takeDown(messageId: bigint): Promise<void> {
-  this.logger?.info(`takingDownMessage: ${messageId}`);
+   * Attempts to take down a specific message from the bulletin board.
+   *
+   * @param messageId The ID of the message to take down.
+   *
+   * @remarks
+   * This method can fail during local circuit execution if the message ID doesn't exist,
+   * or if the message isn't owned by the owner computed from the current private state.
+   */
+  async takeDown(messageId: bigint): Promise<void> {
+    this.logger?.info(`takingDownMessage: ${messageId}`);
 
-  const txData = await this.deployedContract.callTx.takeDown(messageId);
+    const txData = await this.deployedContract.callTx.takeDown(messageId);
 
-  this.logger?.trace({
-    transactionAdded: {
-      circuit: 'takeDown',
-      txHash: txData.public.txHash,
-      blockHeight: txData.public.blockHeight,
-    },
-  });
-}
+    this.logger?.trace({
+      transactionAdded: {
+        circuit: 'takeDown',
+        txHash: txData.public.txHash,
+        blockHeight: txData.public.blockHeight,
+      },
+    });
+  }
 
   /**
    * Deploys a new bulletin board contract to the network.
@@ -261,4 +261,3 @@ async takeDown(messageId: bigint): Promise<void> {
 export * as utils from './utils/index.js';
 
 export * from './common-types.js';
-
