@@ -100,8 +100,6 @@ export class BBoardAPI implements DeployedBBoardAPI {
       ],
       // ...and combine them to produce the required derived state.
       (ledgerState, privateState) => {
-        const hashedSecretKey = BBoard.pureCircuits.publicKey(privateState.secretKey);
-
         // Convert messageMap to array with ownership info
         const messages: Array<{
           id: bigint;
@@ -112,11 +110,17 @@ export class BBoardAPI implements DeployedBBoardAPI {
 
         // Iterate through messageMap using Symbol.iterator
         for (const [id, message] of ledgerState.messageMap) {
+          // Compute the public key for this message using its sequence (message.id)
+          const messagePublicKey = BBoard.pureCircuits.publicKey(
+            privateState.secretKey,
+            convertFieldToBytes(32, message.id, 'api/src/index.ts')
+          );
+          
           messages.push({
             id: message.id,
             content: message.content.is_some ? message.content.value : undefined,
             owner: toHex(message.owner),
-            isOwner: toHex(message.owner) === toHex(hashedSecretKey),
+            isOwner: toHex(message.owner) === toHex(messagePublicKey),
           });
         }
 
@@ -257,3 +261,4 @@ async takeDown(messageId: bigint): Promise<void> {
 export * as utils from './utils/index.js';
 
 export * from './common-types.js';
+
