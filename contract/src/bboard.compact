@@ -36,6 +36,7 @@ export ledger sequence: Counter;
 
 constructor() {
   state = State.OPEN;
+  messageMap.resetToDefault();
   sequence.increment(1);
 }
 
