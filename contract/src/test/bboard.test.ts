@@ -63,7 +63,7 @@ describe("BBoard smart contract", () => {
     expect(postedMessage.id).toEqual(1n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
-    expect(postedMessage.owner).toEqual(simulator.publicKey());
+    expect(postedMessage.owner).toEqual(simulator.publicKey(1n));
     expect(ledgerState.state).toEqual(State.OPEN);
   });
 
@@ -100,7 +100,7 @@ describe("BBoard smart contract", () => {
     expect(postedMessage.id).toEqual(2n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
-    expect(postedMessage.owner).toEqual(simulator.publicKey());
+    expect(postedMessage.owner).toEqual(simulator.publicKey(2n));
     expect(ledgerState.state).toEqual(State.OPEN);
   });
 
@@ -118,7 +118,7 @@ describe("BBoard smart contract", () => {
     expect(postedMessage.id).toEqual(2n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
-    expect(postedMessage.owner).toEqual(simulator.publicKey());
+    expect(postedMessage.owner).toEqual(simulator.publicKey(2n));
     expect(ledgerState.state).toEqual(State.OPEN);
   });
 

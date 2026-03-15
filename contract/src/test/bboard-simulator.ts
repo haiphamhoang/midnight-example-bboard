@@ -17,6 +17,7 @@ import {
   type CircuitContext,
   QueryContext,
   sampleContractAddress,
+  convertFieldToBytes,
   createConstructorContext,
   CostModel,
 } from "@midnight-ntwrk/compact-runtime";
@@ -90,10 +91,12 @@ export class BBoardSimulator {
     return ledger(this.circuitContext.currentQueryContext.state);
   }
 
-  public publicKey(): Uint8Array {
+  public publicKey(messageId: bigint): Uint8Array {
+    const sequence = convertFieldToBytes(32, messageId, "bboard-simulator.ts");
     return this.contract.circuits.publicKey(
       this.circuitContext,
       this.getPrivateState().secretKey,
+      sequence,
     ).result;
   }
 }
