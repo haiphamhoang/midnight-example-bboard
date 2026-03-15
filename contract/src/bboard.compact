@@ -48,7 +48,7 @@ export circuit post(newMessage: Opaque<"string">): [] {
     Message { 
       id: disclose(sequence), 
       content: disclose(some<Opaque<"string">>(newMessage)),
-      owner: disclose(publicKey(localSecretKey(), sequence as Field as Bytes<32>))
+      owner: disclose(publicKey(localSecretKey()))
     }
   );
   sequence.increment(1);
@@ -59,11 +59,11 @@ export circuit takeDown(messageId: Uint<64>): Opaque<"string"> {
   assert(messageMap.member(disclose(messageId)), "Message id not found");
   const message = messageMap.lookup(disclose(messageId)) as Message;
   
-  assert(message.owner == publicKey(localSecretKey(), sequence as Field as Bytes<32>), "Attempted to take down message, but not the current owner");
+  assert(message.owner == publicKey(localSecretKey()), "Attempted to take down message, but not the current owner");
   const formerMsg = message.content.value;
   return formerMsg;
 }
 
-export circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
-  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "bboard:pk:"), sequence, sk]);
+export circuit publicKey(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "bboard:pk:"), sk]);
 }
