@@ -47,7 +47,7 @@ export interface DeployedBBoardAPI {
   readonly state$: Observable<BBoardDerivedState>;
 
   post: (message: string) => Promise<void>;
-  takeDown: () => Promise<void>;
+  takeDown: (messageId: bigint) => Promise<void>;
 }
 
 /**
@@ -85,8 +85,8 @@ export class BBoardAPI implements DeployedBBoardAPI {
               ledgerStateChanged: {
                 ledgerState: {
                   ...ledgerState,
-                  state: ledgerState.state === BBoard.State.OCCUPIED ? 'occupied' : 'vacant',
-                  owner: toHex(ledgerState.owner),
+                  state: ledgerState.state === BBoard.State.OPEN ? 'open' : 'closed',
+                  messageCount: ledgerState.messageMap.size(),
                 },
               },
             }),
@@ -100,16 +100,30 @@ export class BBoardAPI implements DeployedBBoardAPI {
       ],
       // ...and combine them to produce the required derived state.
       (ledgerState, privateState) => {
-        const hashedSecretKey = BBoard.pureCircuits.publicKey(
-          privateState.secretKey,
-          convertFieldToBytes(32, ledgerState.sequence, 'api/src/index.ts'),
-        );
+        const hashedSecretKey = BBoard.pureCircuits.publicKey(privateState.secretKey);
+
+        // Convert messageMap to array with ownership info
+        const messages: Array<{
+          id: bigint;
+          content: string | undefined;
+          owner: string;
+          isOwner: boolean;
+        }> = [];
+
+        // Iterate through messageMap using Symbol.iterator
+        for (const [id, message] of ledgerState.messageMap) {
+          messages.push({
+            id: message.id,
+            content: message.content.is_some ? message.content.value : undefined,
+            owner: toHex(message.owner),
+            isOwner: toHex(message.owner) === toHex(hashedSecretKey),
+          });
+        }
 
         return {
           state: ledgerState.state,
-          message: ledgerState.message.value,
           sequence: ledgerState.sequence,
-          isOwner: toHex(ledgerState.owner) === toHex(hashedSecretKey),
+          messages,
         };
       },
     );
@@ -149,26 +163,27 @@ export class BBoardAPI implements DeployedBBoardAPI {
   }
 
   /**
-   * Attempts to take down any currently posted message on the bulletin board.
-   *
-   * @remarks
-   * This method can fail during local circuit execution if the bulletin board is currently vacant,
-   * or if the currently posted message isn't owned by the owner computed from the current private
-   * state.
-   */
-  async takeDown(): Promise<void> {
-    this.logger?.info('takingDownMessage');
+ * Attempts to take down a specific message from the bulletin board.
+ *
+ * @param messageId The ID of the message to take down.
+ *
+ * @remarks
+ * This method can fail during local circuit execution if the message ID doesn't exist,
+ * or if the message isn't owned by the owner computed from the current private state.
+ */
+async takeDown(messageId: bigint): Promise<void> {
+  this.logger?.info(`takingDownMessage: ${messageId}`);
 
-    const txData = await this.deployedContract.callTx.takeDown();
+  const txData = await this.deployedContract.callTx.takeDown(messageId);
 
-    this.logger?.trace({
-      transactionAdded: {
-        circuit: 'takeDown',
-        txHash: txData.public.txHash,
-        blockHeight: txData.public.blockHeight,
-      },
-    });
-  }
+  this.logger?.trace({
+    transactionAdded: {
+      circuit: 'takeDown',
+      txHash: txData.public.txHash,
+      blockHeight: txData.public.blockHeight,
+    },
+  });
+}
 
   /**
    * Deploys a new bulletin board contract to the network.

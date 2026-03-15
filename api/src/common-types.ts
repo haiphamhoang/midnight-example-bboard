@@ -78,22 +78,22 @@ export type BBoardProviders = MidnightProviders<BBoardCircuitKeys, PrivateStateI
 export type DeployedBBoardContract = FoundContract<BBoardContract>;
 
 /**
+ * A type that represents a single message with ownership information.
+ */
+export type MessageInfo = {
+  readonly id: bigint;
+  readonly content: string | undefined;
+  readonly owner: string;
+  readonly isOwner: boolean;
+};
+
+/**
  * A type that represents the derived combination of public (or ledger), and private state.
  */
 export type BBoardDerivedState = {
   readonly state: State;
   readonly sequence: bigint;
-  readonly message: string | undefined;
-
-  /**
-   * A readonly flag that determines if the current message was posted by the current user.
-   *
-   * @remarks
-   * The `owner` property of the public (or ledger) state is the public key of the message owner, while
-   * the `secretKey` property of {@link BBoardPrivateState} is the secret key of the current user. If
-   * `owner` corresponds to the public key derived from `secretKey`, then `isOwner` is `true`.
-   */
-  readonly isOwner: boolean;
+  readonly messages: readonly MessageInfo[];
 };
 
 // TODO: for some reason I needed to include "@midnight-ntwrk/wallet-sdk-address-format": "1.0.0-rc.1", should we bump in to rc-2 ?

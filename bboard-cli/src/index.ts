@@ -126,12 +126,21 @@ const displayLedgerState = async (
   if (ledgerState === null) {
     logger.info(`There is no bulletin board contract deployed at ${contractAddress}`);
   } else {
-    const boardState = ledgerState.state === State.OCCUPIED ? 'occupied' : 'vacant';
-    const latestMessage = !ledgerState.message.is_some ? 'none' : ledgerState.message.value;
+    const boardState = ledgerState.state === State.OPEN ? 'open' : 'closed';
     logger.info(`Current state is: '${boardState}'`);
-    logger.info(`Current message is: '${latestMessage}'`);
     logger.info(`Current sequence is: ${ledgerState.sequence}`);
-    logger.info(`Current owner is: '${toHex(ledgerState.owner)}'`);
+    logger.info(`Message count: ${ledgerState.messageMap.size()}`);
+    
+    // Display all messages
+    if (ledgerState.messageMap.size() === 0n) {
+      logger.info(`No messages posted yet`);
+    } else {
+      logger.info(`Messages:`);
+      for (const [id, message] of ledgerState.messageMap) {
+        const content = message.content.is_some ? message.content.value : 'none';
+        logger.info(`  [${message.id}] ${content} (owner: ${toHex(message.owner)})`);
+      }
+    }
   }
 };
 
@@ -152,19 +161,28 @@ const displayPrivateState = async (providers: BBoardProviders, logger: Logger): 
  * displayDerivedState: shows the values of derived state which is made
  * by combining the ledger state with private state. In this example, the
  * derived state compares the owner's key with the private secret key to
- * determine if the current user is the owner of the current message.
+ * determine if the current user is the owner of each message.
  */
 
 const displayDerivedState = (ledgerState: BBoardDerivedState | undefined, logger: Logger) => {
   if (ledgerState === undefined) {
     logger.info(`No bulletin board state currently available`);
   } else {
-    const boardState = ledgerState.state === State.OCCUPIED ? 'occupied' : 'vacant';
-    const latestMessage = ledgerState.state === State.OCCUPIED ? ledgerState.message : 'none';
+    const boardState = ledgerState.state === State.OPEN ? 'open' : 'closed';
     logger.info(`Current state is: '${boardState}'`);
-    logger.info(`Current message is: '${latestMessage}'`);
     logger.info(`Current sequence is: ${ledgerState.sequence}`);
-    logger.info(`Current owner is: '${ledgerState.isOwner ? 'you' : 'not you'}'`);
+    
+    // Display all messages with ownership info
+    if (ledgerState.messages.length === 0) {
+      logger.info(`No messages posted yet`);
+    } else {
+      logger.info(`Messages:`);
+      for (const msg of ledgerState.messages) {
+        const content = msg.content ?? 'none';
+        const owner = msg.isOwner ? 'you' : 'not you';
+        logger.info(`  [${msg.id}] ${content} (owner: ${owner})`);
+      }
+    }
   }
 };
 
@@ -178,10 +196,11 @@ const MAIN_LOOP_QUESTION = `
 You can do one of the following:
   1. Post a message
   2. Take down your message
-  3. Display the current ledger state (known by everyone)
-  4. Display the current private state (known only to this DApp instance)
-  5. Display the current derived state (known only to this DApp instance)
-  6. Exit
+  3. List all messages
+  4. Display the current ledger state (known by everyone)
+  5. Display the current private state (known only to this DApp instance)
+  6. Display the current derived state (known only to this DApp instance)
+  7. Exit
 Which would you like to do? `;
 
 const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logger): Promise<void> => {
@@ -203,19 +222,49 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
           await bboardApi.post(message);
           break;
         }
-        case '2':
-          await bboardApi.takeDown();
+        case '2': {
+          // Show user's messages and ask which to take down
+          const userMessages = currentState?.messages.filter(m => m.isOwner) ?? [];
+          if (userMessages.length === 0) {
+            logger.info('You have no messages to take down');
+          } else {
+            logger.info('Your messages:');
+            for (const msg of userMessages) {
+              const content = msg.content ?? 'none';
+              logger.info(`  [${msg.id}] ${content}`);
+            }
+            const messageIdStr = await rli.question(`Which message ID do you want to take down? `);
+            const messageId = BigInt(messageIdStr);
+            await bboardApi.takeDown(messageId);
+          }
           break;
-        case '3':
+        }
+        case '3': {
+          // List all messages
+          if (currentState === undefined) {
+            logger.info('No bulletin board state currently available');
+          } else if (currentState.messages.length === 0) {
+            logger.info('No messages posted yet');
+          } else {
+            logger.info('All messages:');
+            for (const msg of currentState.messages) {
+              const content = msg.content ?? 'none';
+              const owner = msg.isOwner ? 'you' : 'not you';
+              logger.info(`  [${msg.id}] ${content} (owner: ${owner})`);
+            }
+          }
+          break;
+        }
+        case '4':
           await displayLedgerState(providers, bboardApi.deployedContract, logger);
           break;
-        case '4':
+        case '5':
           await displayPrivateState(providers, logger);
           break;
-        case '5':
+        case '6':
           displayDerivedState(currentState, logger);
           break;
-        case '6':
+        case '7':
           logger.info('Exiting...');
           return;
         default:
