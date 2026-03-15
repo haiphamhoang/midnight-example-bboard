@@ -127,6 +127,7 @@ export class BBoardAPI implements DeployedBBoardAPI {
         return {
           state: ledgerState.state,
           sequence: ledgerState.sequence,
+          maxMessages: ledgerState.maxMessages,
           messages,
         };
       },

@@ -129,14 +129,15 @@ const displayLedgerState = async (
     const boardState = ledgerState.state === State.OPEN ? 'open' : 'closed';
     logger.info(`Current state is: '${boardState}'`);
     logger.info(`Current sequence is: ${ledgerState.sequence}`);
+    logger.info(`Max messages: ${ledgerState.maxMessages}`);
     logger.info(`Message count: ${ledgerState.messageMap.size()}`);
-    
+
     // Display all messages
     if (ledgerState.messageMap.size() === 0n) {
       logger.info(`No messages posted yet`);
     } else {
       logger.info(`Messages:`);
-      for (const [id, message] of ledgerState.messageMap) {
+      for (const [, message] of ledgerState.messageMap) {
         const content = message.content.is_some ? message.content.value : 'none';
         logger.info(`  [${message.id}] ${content} (owner: ${toHex(message.owner)})`);
       }
@@ -171,7 +172,8 @@ const displayDerivedState = (ledgerState: BBoardDerivedState | undefined, logger
     const boardState = ledgerState.state === State.OPEN ? 'open' : 'closed';
     logger.info(`Current state is: '${boardState}'`);
     logger.info(`Current sequence is: ${ledgerState.sequence}`);
-    
+    logger.info(`Remaining message capacity: ${ledgerState.maxMessages - BigInt(ledgerState.messages.length)}`);
+
     // Display all messages with ownership info
     if (ledgerState.messages.length === 0) {
       logger.info(`No messages posted yet`);
@@ -224,7 +226,7 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
         }
         case '2': {
           // Show user's messages and ask which to take down
-          const userMessages = currentState?.messages.filter(m => m.isOwner) ?? [];
+          const userMessages = currentState?.messages.filter((m) => m.isOwner) ?? [];
           if (userMessages.length === 0) {
             logger.info('You have no messages to take down');
           } else {
@@ -309,10 +311,11 @@ const buildWallet = async (config: Config, rli: Interface, logger: Logger): Prom
         return toHex(randomBytes(32));
       case '2':
         return await rli.question('Enter your wallet seed: ');
-      case '3':
+      case '3': {
         const walletFile = 'wallet.txt';
         const walletData = await readFile(walletFile, 'utf8');
         return walletData;
+      }
       case '4':
         logger.info('Exiting...');
         return undefined;

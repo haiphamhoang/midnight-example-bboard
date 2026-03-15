@@ -93,6 +93,7 @@ export type MessageInfo = {
 export type BBoardDerivedState = {
   readonly state: State;
   readonly sequence: bigint;
+  readonly maxMessages: bigint;
   readonly messages: readonly MessageInfo[];
 };
 
