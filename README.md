@@ -7,6 +7,15 @@ This project is built on the [Midnight Network](https://midnight.network/).
 
 A Midnight smart contract example demonstrating a simple one-item bulletin board with zero-knowledge proofs on testnet. Users can post a single message at a time, and only the message author can remove it.
 
+## The Assignment
+
+This project includes three implementation tracks to extend the basic bulletin board functionality:
+
+- [x] **Track A: Multi-Post Board** — Allow multiple messages to coexist on the board simultaneously
+- [ ] **Track B: Timed Posts with Expiration** — Add automatic expiration for messages after a specified time
+- [ ] **Track C: Sealed Ownership with Selective Disclosure** — Enable private ownership verification with selective disclosure of message authorship
+
+
 ## Project Structure
 
 ```
