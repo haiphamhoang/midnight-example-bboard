@@ -33,17 +33,17 @@ export ledger state: State;
 
 export ledger messageMap: Map<Uint<64>, Message>;
 
-export sealed ledger maxMessages: Uint<32>;
+export sealed ledger MAX_TOTAL_MESSAGES: Uint<32>;
 
-export sealed ledger maxExpiryDuration: Uint<64>;
+export sealed ledger MAX_EXPIRATION_SECONDS: Uint<64>;
 
 export ledger sequence: Counter;
 
 
 constructor() {
   state = State.OPEN;
-  maxMessages = 10;
-  maxExpiryDuration = 86400; // 24 hours in seconds
+  MAX_TOTAL_MESSAGES = 10;
+  MAX_EXPIRATION_SECONDS = 86400; // 24 hours in seconds
   messageMap.resetToDefault();
   sequence.increment(1);
 }
@@ -56,8 +56,8 @@ export circuit post(newMessage: Opaque<"string">, expiryTimestamp: Uint<64>): []
     "Attempted to post message, but board is closed"
   );
   assert(
-    kernel.blockTimeLessThan(disclose(expiryTimestamp - maxExpiryDuration)), 
-    "Message must be expired after 24 hours"
+    kernel.blockTimeGreaterThan(disclose(expiryTimestamp - MAX_EXPIRATION_SECONDS)), 
+    "Expiry Timestamp must be within 24 hours from current block time"
   );
   messageMap.insert(
     sequence,
@@ -71,7 +71,7 @@ export circuit post(newMessage: Opaque<"string">, expiryTimestamp: Uint<64>): []
   sequence.increment(1);
 
   // Close the board when message limit is reached
-  if (messageMap.size() >= maxMessages) {
+  if (messageMap.size() >= MAX_TOTAL_MESSAGES) {
     state = State.CLOSED;
   }
 }
@@ -89,7 +89,7 @@ export circuit takeDown(messageId: Uint<64>): Opaque<"string"> {
   );
   messageMap.remove(disclose(messageId));
 
-  if (state == State.CLOSED && messageMap.size() < maxMessages) {
+  if (state == State.CLOSED && messageMap.size() < MAX_TOTAL_MESSAGES) {
     state = State.OPEN;
   }
 
