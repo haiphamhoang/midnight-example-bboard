@@ -55,6 +55,92 @@ import { BBoardPrivateState } from '@midnight-ntwrk/bboard-contract';
 globalThis.WebSocket = WebSocket;
 
 /* **********************************************************************
+ * Helper functions for Unix timestamp handling
+ */
+
+/**
+ * Converts a human-readable duration string to seconds.
+ * Supports formats like: "1h", "24h", "1d", "7d", "1w", "30m", etc.
+ * @param durationStr The duration string (e.g., "24h", "1d", "30m")
+ * @returns The duration in seconds
+ */
+const parseDurationToSeconds = (durationStr: string): number => {
+  const trimmed = durationStr.trim().toLowerCase();
+  const match = trimmed.match(/^(\d+)\s*([smhdw])$/);
+
+  if (!match) {
+    throw new Error(`Invalid duration format: ${durationStr}. Use format like "24h", "1d", "30m", etc.`);
+  }
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+
+  const multipliers: Record<string, number> = {
+    s: 1, // seconds
+    m: 60, // minutes
+    h: 3600, // hours
+    d: 86400, // days
+    w: 604800, // weeks
+  };
+
+  return value * multipliers[unit];
+};
+
+/**
+ * Calculates a Unix timestamp for a future time based on a duration string.
+ * @param durationStr The duration string (e.g., "24h", "1d", "30m")
+ * @returns The Unix timestamp (seconds since epoch) for the expiry time
+ */
+const calculateExpiryTimestamp = (durationStr: string): bigint => {
+  const seconds = parseDurationToSeconds(durationStr);
+  const now = Math.floor(Date.now() / 1000);
+  return BigInt(now + seconds);
+};
+
+/**
+ * Formats a Unix timestamp to a human-readable date string.
+ * @param timestamp The Unix timestamp in seconds
+ * @returns A formatted date string (e.g., "2025-03-16 15:30:00 UTC")
+ */
+const formatTimestamp = (timestamp: bigint): string => {
+  const date = new Date(Number(timestamp) * 1000);
+  return date.toUTCString();
+};
+
+/**
+ * Formats a Unix timestamp to show relative time from now.
+ * @param timestamp The Unix timestamp in seconds
+ * @returns A string showing relative time (e.g., "in 2 hours", "5 minutes ago")
+ */
+const formatRelativeTime = (timestamp: bigint): string => {
+  const now = Math.floor(Date.now() / 1000);
+  const diff = Number(timestamp) - now;
+  const absDiff = Math.abs(diff);
+
+  const intervals = [
+    { label: 'week', seconds: 604800 },
+    { label: 'day', seconds: 86400 },
+    { label: 'hour', seconds: 3600 },
+    { label: 'minute', seconds: 60 },
+    { label: 'second', seconds: 1 },
+  ];
+
+  for (const interval of intervals) {
+    const count = Math.floor(absDiff / interval.seconds);
+    if (count >= 1) {
+      const plural = count > 1 ? 's' : '';
+      if (diff > 0) {
+        return `in ${count} ${interval.label}${plural}`;
+      } else {
+        return `${count} ${interval.label}${plural} ago`;
+      }
+    }
+  }
+
+  return 'now';
+};
+
+/* **********************************************************************
  * getBBoardLedgerState: a helper that queries the current state of
  * the data on the ledger, for a specific bulletin board contract.
  * Note that the Ledger type returned here is not some generic,
@@ -129,7 +215,8 @@ const displayLedgerState = async (
     const boardState = ledgerState.state === State.OPEN ? 'open' : 'closed';
     logger.info(`Current state is: '${boardState}'`);
     logger.info(`Current sequence is: ${ledgerState.sequence}`);
-    logger.info(`Max messages: ${ledgerState.maxMessages}`);
+    logger.info(`Max messages: ${ledgerState.MAX_TOTAL_MESSAGES}`);
+    logger.info(`Max expiration seconds: ${ledgerState.MAX_EXPIRATION_SECONDS}`);
     logger.info(`Message count: ${ledgerState.messageMap.size()}`);
 
     // Display all messages
@@ -139,7 +226,11 @@ const displayLedgerState = async (
       logger.info(`Messages:`);
       for (const [, message] of ledgerState.messageMap) {
         const content = message.content.is_some ? message.content.value : 'none';
-        logger.info(`  [${message.id}] ${content} (owner: ${toHex(message.owner)})`);
+        const expiryDate = formatTimestamp(message.expiryTimestamp);
+        const relativeTime = formatRelativeTime(message.expiryTimestamp);
+        logger.info(
+          `  [${message.id}] ${content} (expires: ${expiryDate} (${relativeTime}), owner: ${toHex(message.owner)})`,
+        );
       }
     }
   }
@@ -173,6 +264,7 @@ const displayDerivedState = (ledgerState: BBoardDerivedState | undefined, logger
     logger.info(`Current state is: '${boardState}'`);
     logger.info(`Current sequence is: ${ledgerState.sequence}`);
     logger.info(`Remaining message capacity: ${ledgerState.maxMessages - BigInt(ledgerState.messages.length)}`);
+    logger.info(`Max expiration seconds: ${ledgerState.maxExpirationSeconds}`);
 
     // Display all messages with ownership info
     if (ledgerState.messages.length === 0) {
@@ -182,7 +274,9 @@ const displayDerivedState = (ledgerState: BBoardDerivedState | undefined, logger
       for (const msg of ledgerState.messages) {
         const content = msg.content ?? 'none';
         const owner = msg.isOwner ? 'you' : 'not you';
-        logger.info(`  [${msg.id}] ${content} (owner: ${owner})`);
+        const expiryDate = formatTimestamp(msg.expiryTimestamp);
+        const relativeTime = formatRelativeTime(msg.expiryTimestamp);
+        logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}), owner: ${owner})`);
       }
     }
   }
@@ -221,7 +315,16 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
       switch (choice) {
         case '1': {
           const message = await rli.question(`What message do you want to post? `);
-          await bboardApi.post(message);
+          const durationStr = await rli.question(`How long should the message be visible? (e.g., "24h", "1d", "30m") `);
+          try {
+            const expiryTimestamp = calculateExpiryTimestamp(durationStr);
+            logger.info(
+              `Message will expire at: ${formatTimestamp(expiryTimestamp)} (${formatRelativeTime(expiryTimestamp)})`,
+            );
+            await bboardApi.post(message, expiryTimestamp);
+          } catch (error) {
+            logger.error(`Invalid duration format: ${error instanceof Error ? error.message : String(error)}`);
+          }
           break;
         }
         case '2': {
@@ -233,7 +336,9 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
             logger.info('Your messages:');
             for (const msg of userMessages) {
               const content = msg.content ?? 'none';
-              logger.info(`  [${msg.id}] ${content}`);
+              const expiryDate = formatTimestamp(msg.expiryTimestamp);
+              const relativeTime = formatRelativeTime(msg.expiryTimestamp);
+              logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}))`);
             }
             const messageIdStr = await rli.question(`Which message ID do you want to take down? `);
             const messageId = BigInt(messageIdStr);
@@ -252,7 +357,9 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
             for (const msg of currentState.messages) {
               const content = msg.content ?? 'none';
               const owner = msg.isOwner ? 'you' : 'not you';
-              logger.info(`  [${msg.id}] ${content} (owner: ${owner})`);
+              const expiryDate = formatTimestamp(msg.expiryTimestamp);
+              const relativeTime = formatRelativeTime(msg.expiryTimestamp);
+              logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}), owner: ${owner})`);
             }
           }
           break;
