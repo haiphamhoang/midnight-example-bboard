@@ -33,11 +33,11 @@ export ledger state: State;
 
 export ledger messageMap: Map<Uint<64>, Message>;
 
+export ledger sequence: Counter;
+
 export sealed ledger MAX_TOTAL_MESSAGES: Uint<32>;
 
 export sealed ledger MAX_EXPIRATION_SECONDS: Uint<64>;
-
-export ledger sequence: Counter;
 
 
 constructor() {
