@@ -24,25 +24,11 @@ import { State } from "../managed/bboard/contract/index.js";
 
 setNetworkId("undeployed" as NetworkId);
 
-// Helper function to generate a valid expiry timestamp (24 hours in the future)
+// Helper function to generate a valid expiry timestamp (within 24 hours in the future)
 const generateValidExpiryTimestamp = (): bigint => {
-  // Current timestamp in seconds + 24 hours (86400 seconds) + 1 hour buffer
+  // Current timestamp in seconds + 12 hours (well within 24 hours limit)
   const now = Math.floor(Date.now() / 1000);
-  return BigInt(now + 86400 + 3600);
-};
-
-// Helper function to generate an invalid expiry timestamp (too soon)
-const generateInvalidExpiryTimestamp = (): bigint => {
-  // Current timestamp in seconds + 1 hour (less than 24 hours)
-  const now = Math.floor(Date.now() / 1000);
-  return BigInt(now + 3600);
-};
-
-// Helper function to generate an expired timestamp (in the past)
-const generateExpiredTimestamp = (): bigint => {
-  // Current timestamp in seconds - 1 hour
-  const now = Math.floor(Date.now() / 1000);
-  return BigInt(now - 3600);
+  return BigInt(now + 43200);
 };
 
 describe("BBoard smart contract", () => {
@@ -64,7 +50,8 @@ describe("BBoard smart contract", () => {
     expect(initialLedgerState.sequence).toEqual(1n);
     expect(initialLedgerState.messageMap.size()).toEqual(0n);
     expect(initialLedgerState.state).toEqual(State.OPEN);
-    expect(initialLedgerState.maxMessages).toEqual(10n);
+    expect(initialLedgerState.MAX_TOTAL_MESSAGES).toEqual(10n);
+    expect(initialLedgerState.MAX_EXPIRATION_SECONDS).toEqual(86400n);
     const initialPrivateState = simulator.getPrivateState();
     expect(initialPrivateState).toEqual({ secretKey: key });
   });
@@ -225,9 +212,9 @@ describe("BBoard smart contract", () => {
     );
   });
 
-  it("closes the board when maxMessages is reached", () => {
+  it("closes the board when MAX_TOTAL_MESSAGES is reached", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    // maxMessages is 10, so post 10 messages to close the board
+    // MAX_TOTAL_MESSAGES is 10, so post 10 messages to close the board
     for (let i = 0; i < 10; i++) {
       simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
     }
@@ -236,7 +223,7 @@ describe("BBoard smart contract", () => {
     expect(ledgerState.state).toEqual(State.CLOSED);
   });
 
-  it("reopens the board when messages are taken down below maxMessages", () => {
+  it("reopens the board when messages are taken down below MAX_TOTAL_MESSAGES", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     // Post 10 messages to close the board
     for (let i = 0; i < 10; i++) {
@@ -253,7 +240,7 @@ describe("BBoard smart contract", () => {
 
   it("doesn't let you post when the board is closed", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    // Post 10 messages to close the board
+    // Post 10 messages to close the board (MAX_TOTAL_MESSAGES is 10)
     for (let i = 0; i < 10; i++) {
       simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
     }
@@ -267,7 +254,7 @@ describe("BBoard smart contract", () => {
 
   it("allows posting again after board reopens", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    // Post 10 messages to close the board
+    // Post 10 messages to close the board (MAX_TOTAL_MESSAGES is 10)
     for (let i = 0; i < 10; i++) {
       simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
     }
@@ -285,12 +272,7 @@ describe("BBoard smart contract", () => {
     expect(ledgerState.state).toEqual(State.OPEN);
   });
 
-  it("properly initializes maxExpiryDuration", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    const initialLedgerState = simulator.getLedger();
-    expect(initialLedgerState.maxExpiryDuration).toEqual(86400n);
-  });
-
+  // Tests for expiry timestamp functionality
   it("stores expiryTimestamp in posted messages", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     const message = "Test message with expiry";
@@ -344,5 +326,30 @@ describe("BBoard smart contract", () => {
     
     expect(message1.expiryTimestamp).toEqual(expiry1);
     expect(message2.expiryTimestamp).toEqual(expiry2);
+  });
+
+  it("doesn't let you post with expiry timestamp too far in the future", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    // Expiry timestamp more than 24 hours in the future (25 hours)
+    const now = Math.floor(Date.now() / 1000);
+    const invalidExpiry = BigInt(now + 86400 + 3600 + 3600); // 24h + 1h + 1h = 26h
+    
+    expect(() => simulator.post("This should fail", invalidExpiry)).toThrow(
+      "failed assert: Expiry Timestamp must be within 24 hours from current block time",
+    );
+  });
+
+  it("let you post with expiry timestamp in the past", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    // Expiry timestamp in the past (1 hour ago)
+    const now = Math.floor(Date.now() / 1000);
+    const pastExpiry = BigInt(now - 3600);
+    const message = "This should succeed";
+    // Posting with past expiry should succeed (no assert for past expiry, only future)
+    simulator.post(message, pastExpiry);
+    const ledgerState = simulator.getLedger();
+    const postedMessage = ledgerState.messageMap.lookup(1n);
+    expect(postedMessage.content.value).toEqual(message);
+    expect(postedMessage.expiryTimestamp).toEqual(pastExpiry);
   });
 });
