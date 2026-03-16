@@ -119,7 +119,10 @@ describe("BBoard smart contract", () => {
 
   it("lets a different user post a message after taking down the first", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post("Remember, the past need not become our future as well.", generateValidExpiryTimestamp());
+    simulator.post(
+      "Remember, the past need not become our future as well.",
+      generateValidExpiryTimestamp(),
+    );
     simulator.takeDown(1n);
     simulator.switchUser(randomBytes(32));
     const message = "Joy was more than just an absence of discomfort.";
@@ -162,7 +165,10 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     simulator.post("Ash fell from the sky", generateValidExpiryTimestamp());
     simulator.switchUser(randomBytes(32));
-    simulator.post("I am, unfortunately, the hero of ages.", generateValidExpiryTimestamp());
+    simulator.post(
+      "I am, unfortunately, the hero of ages.",
+      generateValidExpiryTimestamp(),
+    );
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
     expect(ledgerState.messageMap.size()).toEqual(2n);
@@ -247,9 +253,9 @@ describe("BBoard smart contract", () => {
     expect(simulator.getLedger().state).toEqual(State.CLOSED);
 
     // Attempting to post when closed should fail
-    expect(() => simulator.post("This should fail", generateValidExpiryTimestamp())).toThrow(
-      "failed assert: Attempted to post message, but board is closed",
-    );
+    expect(() =>
+      simulator.post("This should fail", generateValidExpiryTimestamp()),
+    ).toThrow("failed assert: Attempted to post message, but board is closed");
   });
 
   it("allows posting again after board reopens", () => {
@@ -278,7 +284,7 @@ describe("BBoard smart contract", () => {
     const message = "Test message with expiry";
     const expiryTimestamp = generateValidExpiryTimestamp();
     simulator.post(message, expiryTimestamp);
-    
+
     const ledgerState = simulator.getLedger();
     const postedMessage = ledgerState.messageMap.lookup(1n);
     expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
@@ -289,10 +295,10 @@ describe("BBoard smart contract", () => {
     const message = "This message is not expired";
     const validExpiryTimestamp = generateValidExpiryTimestamp();
     simulator.post(message, validExpiryTimestamp);
-    
+
     // Switch to a different user
     simulator.switchUser(randomBytes(32));
-    
+
     // Different user should NOT be able to take down the non-expired message
     expect(() => simulator.takeDown(1n)).toThrow(
       "failed assert: Attempted to take down message, but not the current owner or message has not expired",
@@ -304,10 +310,10 @@ describe("BBoard smart contract", () => {
     const message = "Owner can always remove";
     const validExpiryTimestamp = generateValidExpiryTimestamp();
     simulator.post(message, validExpiryTimestamp);
-    
+
     // Owner should be able to take down their own message even if not expired
     simulator.takeDown(1n);
-    
+
     const ledgerState = simulator.getLedger();
     expect(ledgerState.messageMap.size()).toEqual(0n);
   });
@@ -316,14 +322,14 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     const expiry1 = generateValidExpiryTimestamp();
     const expiry2 = generateValidExpiryTimestamp() + 3600n; // 1 hour later
-    
+
     simulator.post("First message", expiry1);
     simulator.post("Second message", expiry2);
-    
+
     const ledgerState = simulator.getLedger();
     const message1 = ledgerState.messageMap.lookup(1n);
     const message2 = ledgerState.messageMap.lookup(2n);
-    
+
     expect(message1.expiryTimestamp).toEqual(expiry1);
     expect(message2.expiryTimestamp).toEqual(expiry2);
   });
@@ -333,7 +339,7 @@ describe("BBoard smart contract", () => {
     // Expiry timestamp more than 24 hours in the future (25 hours)
     const now = Math.floor(Date.now() / 1000);
     const invalidExpiry = BigInt(now + 86400 + 3600 + 3600); // 24h + 1h + 1h = 26h
-    
+
     expect(() => simulator.post("This should fail", invalidExpiry)).toThrow(
       "failed assert: Expiry Timestamp must be within 24 hours from current block time",
     );
