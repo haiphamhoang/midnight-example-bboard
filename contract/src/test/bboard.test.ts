@@ -24,6 +24,27 @@ import { State } from "../managed/bboard/contract/index.js";
 
 setNetworkId("undeployed" as NetworkId);
 
+// Helper function to generate a valid expiry timestamp (24 hours in the future)
+const generateValidExpiryTimestamp = (): bigint => {
+  // Current timestamp in seconds + 24 hours (86400 seconds) + 1 hour buffer
+  const now = Math.floor(Date.now() / 1000);
+  return BigInt(now + 86400 + 3600);
+};
+
+// Helper function to generate an invalid expiry timestamp (too soon)
+const generateInvalidExpiryTimestamp = (): bigint => {
+  // Current timestamp in seconds + 1 hour (less than 24 hours)
+  const now = Math.floor(Date.now() / 1000);
+  return BigInt(now + 3600);
+};
+
+// Helper function to generate an expired timestamp (in the past)
+const generateExpiredTimestamp = (): bigint => {
+  // Current timestamp in seconds - 1 hour
+  const now = Math.floor(Date.now() / 1000);
+  return BigInt(now - 3600);
+};
+
 describe("BBoard smart contract", () => {
   it("generates initial ledger state deterministically", () => {
     const key = randomBytes(32);
@@ -53,7 +74,8 @@ describe("BBoard smart contract", () => {
     const initialPrivateState = simulator.getPrivateState();
     const message =
       "Szeth-son-son-Vallano, Truthless of Shinovar, wore white on the day he was to kill a king";
-    simulator.post(message);
+    const expiryTimestamp = generateValidExpiryTimestamp();
+    simulator.post(message, expiryTimestamp);
     // the private ledger state shouldn't change
     expect(initialPrivateState).toEqual(simulator.getPrivateState());
     // And all the correct things should have been updated in the public ledger state
@@ -64,6 +86,7 @@ describe("BBoard smart contract", () => {
     expect(postedMessage.id).toEqual(1n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
+    expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
     expect(postedMessage.owner).toEqual(simulator.publicKey(1n));
     expect(ledgerState.state).toEqual(State.OPEN);
   });
@@ -73,7 +96,7 @@ describe("BBoard smart contract", () => {
     const initialPrivateState = simulator.getPrivateState();
     const message =
       "Prince Raoden of Arelon awoke early that morning, completely unaware that he had been damned for all eternity.";
-    simulator.post(message);
+    simulator.post(message, generateValidExpiryTimestamp());
     simulator.takeDown(1n);
     // the private ledger state shouldn't change
     expect(initialPrivateState).toEqual(simulator.getPrivateState());
@@ -87,10 +110,11 @@ describe("BBoard smart contract", () => {
   it("lets you post another message after taking down the first", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     const initialPrivateState = simulator.getPrivateState();
-    simulator.post("Life before Death.");
+    simulator.post("Life before Death.", generateValidExpiryTimestamp());
     simulator.takeDown(1n);
     const message = "Strength before Weakness.";
-    simulator.post(message);
+    const expiryTimestamp = generateValidExpiryTimestamp();
+    simulator.post(message, expiryTimestamp);
     // the private ledger state shouldn't change
     expect(initialPrivateState).toEqual(simulator.getPrivateState());
     // And all the correct things should have been updated in the public ledger state
@@ -101,17 +125,19 @@ describe("BBoard smart contract", () => {
     expect(postedMessage.id).toEqual(2n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
+    expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
     expect(postedMessage.owner).toEqual(simulator.publicKey(2n));
     expect(ledgerState.state).toEqual(State.OPEN);
   });
 
   it("lets a different user post a message after taking down the first", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post("Remember, the past need not become our future as well.");
+    simulator.post("Remember, the past need not become our future as well.", generateValidExpiryTimestamp());
     simulator.takeDown(1n);
     simulator.switchUser(randomBytes(32));
     const message = "Joy was more than just an absence of discomfort.";
-    simulator.post(message);
+    const expiryTimestamp = generateValidExpiryTimestamp();
+    simulator.post(message, expiryTimestamp);
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
     expect(ledgerState.messageMap.size()).toEqual(1n);
@@ -119,6 +145,7 @@ describe("BBoard smart contract", () => {
     expect(postedMessage.id).toEqual(2n);
     expect(postedMessage.content.is_some).toEqual(true);
     expect(postedMessage.content.value).toEqual(message);
+    expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
     expect(postedMessage.owner).toEqual(simulator.publicKey(2n));
     expect(ledgerState.state).toEqual(State.OPEN);
   });
@@ -127,9 +154,11 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     simulator.post(
       "My name is Stephen Leeds, and I am perfectly sane. My hallucinations, however, are all quite mad.",
+      generateValidExpiryTimestamp(),
     );
     simulator.post(
       "You should know by now that I've already had greatness. I traded it for mediocrity and some measure of sanity.",
+      generateValidExpiryTimestamp(),
     );
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
@@ -144,9 +173,9 @@ describe("BBoard smart contract", () => {
 
   it("lets different users post multiple messages", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post("Ash fell from the sky");
+    simulator.post("Ash fell from the sky", generateValidExpiryTimestamp());
     simulator.switchUser(randomBytes(32));
-    simulator.post("I am, unfortunately, the hero of ages.");
+    simulator.post("I am, unfortunately, the hero of ages.", generateValidExpiryTimestamp());
     const ledgerState = simulator.getLedger();
     expect(ledgerState.sequence).toEqual(3n);
     expect(ledgerState.messageMap.size()).toEqual(2n);
@@ -162,18 +191,19 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     simulator.post(
       "Sometimes a hypocrite is nothing more than a man in the process of changing.",
+      generateValidExpiryTimestamp(),
     );
     simulator.switchUser(randomBytes(32));
     expect(() => simulator.takeDown(1n)).toThrow(
-      "failed assert: Attempted to take down message, but not the current owner",
+      "failed assert: Attempted to take down message, but not the current owner or message has not expired",
     );
   });
 
   it("lets you take down a specific message when multiple exist", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post("First message");
-    simulator.post("Second message");
-    simulator.post("Third message");
+    simulator.post("First message", generateValidExpiryTimestamp());
+    simulator.post("Second message", generateValidExpiryTimestamp());
+    simulator.post("Third message", generateValidExpiryTimestamp());
 
     // Take down the second message
     simulator.takeDown(2n);
@@ -189,7 +219,7 @@ describe("BBoard smart contract", () => {
 
   it("doesn't let you take down a non-existent message", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post("A message");
+    simulator.post("A message", generateValidExpiryTimestamp());
     expect(() => simulator.takeDown(99n)).toThrow(
       "failed assert: Message id not found",
     );
@@ -199,7 +229,7 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     // maxMessages is 10, so post 10 messages to close the board
     for (let i = 0; i < 10; i++) {
-      simulator.post(`Message ${i + 1}`);
+      simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
     }
     const ledgerState = simulator.getLedger();
     expect(ledgerState.messageMap.size()).toEqual(10n);
@@ -210,7 +240,7 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     // Post 10 messages to close the board
     for (let i = 0; i < 10; i++) {
-      simulator.post(`Message ${i + 1}`);
+      simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
     }
     expect(simulator.getLedger().state).toEqual(State.CLOSED);
 
@@ -225,13 +255,13 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     // Post 10 messages to close the board
     for (let i = 0; i < 10; i++) {
-      simulator.post(`Message ${i + 1}`);
+      simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
     }
     expect(simulator.getLedger().state).toEqual(State.CLOSED);
 
     // Attempting to post when closed should fail
-    expect(() => simulator.post("This should fail")).toThrow(
-      "failed assert: Attempted to post to an closed board",
+    expect(() => simulator.post("This should fail", generateValidExpiryTimestamp())).toThrow(
+      "failed assert: Attempted to post message, but board is closed",
     );
   });
 
@@ -239,7 +269,7 @@ describe("BBoard smart contract", () => {
     const simulator = new BBoardSimulator(randomBytes(32));
     // Post 10 messages to close the board
     for (let i = 0; i < 10; i++) {
-      simulator.post(`Message ${i + 1}`);
+      simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
     }
     expect(simulator.getLedger().state).toEqual(State.CLOSED);
 
@@ -249,9 +279,70 @@ describe("BBoard smart contract", () => {
     expect(simulator.getLedger().state).toEqual(State.OPEN);
 
     // Should be able to post again
-    simulator.post("Posted after reopening");
+    simulator.post("Posted after reopening", generateValidExpiryTimestamp());
     const ledgerState = simulator.getLedger();
     expect(ledgerState.messageMap.size()).toEqual(9n);
     expect(ledgerState.state).toEqual(State.OPEN);
+  });
+
+  it("properly initializes maxExpiryDuration", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    const initialLedgerState = simulator.getLedger();
+    expect(initialLedgerState.maxExpiryDuration).toEqual(86400n);
+  });
+
+  it("stores expiryTimestamp in posted messages", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    const message = "Test message with expiry";
+    const expiryTimestamp = generateValidExpiryTimestamp();
+    simulator.post(message, expiryTimestamp);
+    
+    const ledgerState = simulator.getLedger();
+    const postedMessage = ledgerState.messageMap.lookup(1n);
+    expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
+  });
+
+  it("doesn't let non-owner take down non-expired messages", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    const message = "This message is not expired";
+    const validExpiryTimestamp = generateValidExpiryTimestamp();
+    simulator.post(message, validExpiryTimestamp);
+    
+    // Switch to a different user
+    simulator.switchUser(randomBytes(32));
+    
+    // Different user should NOT be able to take down the non-expired message
+    expect(() => simulator.takeDown(1n)).toThrow(
+      "failed assert: Attempted to take down message, but not the current owner or message has not expired",
+    );
+  });
+
+  it("lets owner take down their own message regardless of expiry", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    const message = "Owner can always remove";
+    const validExpiryTimestamp = generateValidExpiryTimestamp();
+    simulator.post(message, validExpiryTimestamp);
+    
+    // Owner should be able to take down their own message even if not expired
+    simulator.takeDown(1n);
+    
+    const ledgerState = simulator.getLedger();
+    expect(ledgerState.messageMap.size()).toEqual(0n);
+  });
+
+  it("stores different expiry timestamps for different messages", () => {
+    const simulator = new BBoardSimulator(randomBytes(32));
+    const expiry1 = generateValidExpiryTimestamp();
+    const expiry2 = generateValidExpiryTimestamp() + 3600n; // 1 hour later
+    
+    simulator.post("First message", expiry1);
+    simulator.post("Second message", expiry2);
+    
+    const ledgerState = simulator.getLedger();
+    const message1 = ledgerState.messageMap.lookup(1n);
+    const message2 = ledgerState.messageMap.lookup(2n);
+    
+    expect(message1.expiryTimestamp).toEqual(expiry1);
+    expect(message2.expiryTimestamp).toEqual(expiry2);
   });
 });
