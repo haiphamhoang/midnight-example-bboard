@@ -83,6 +83,7 @@ export type DeployedBBoardContract = FoundContract<BBoardContract>;
 export type MessageInfo = {
   readonly id: bigint;
   readonly content: string | undefined;
+  readonly expiryTimestamp: bigint;
   readonly owner: string;
   readonly isOwner: boolean;
 };
@@ -94,6 +95,7 @@ export type BBoardDerivedState = {
   readonly state: State;
   readonly sequence: bigint;
   readonly maxMessages: bigint;
+  readonly maxExpirationSeconds: bigint;
   readonly messages: readonly MessageInfo[];
 };
 

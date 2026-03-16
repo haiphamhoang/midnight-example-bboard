@@ -46,7 +46,7 @@ export interface DeployedBBoardAPI {
   readonly deployedContractAddress: ContractAddress;
   readonly state$: Observable<BBoardDerivedState>;
 
-  post: (message: string) => Promise<void>;
+  post: (message: string, expiryTimestamp: bigint) => Promise<void>;
   takeDown: (messageId: bigint) => Promise<void>;
 }
 
@@ -104,6 +104,7 @@ export class BBoardAPI implements DeployedBBoardAPI {
         const messages: Array<{
           id: bigint;
           content: string | undefined;
+          expiryTimestamp: bigint;
           owner: string;
           isOwner: boolean;
         }> = [];
@@ -119,6 +120,7 @@ export class BBoardAPI implements DeployedBBoardAPI {
           messages.push({
             id: message.id,
             content: message.content.is_some ? message.content.value : undefined,
+            expiryTimestamp: message.expiryTimestamp,
             owner: toHex(message.owner),
             isOwner: toHex(message.owner) === toHex(messagePublicKey),
           });
@@ -127,7 +129,8 @@ export class BBoardAPI implements DeployedBBoardAPI {
         return {
           state: ledgerState.state,
           sequence: ledgerState.sequence,
-          maxMessages: ledgerState.maxMessages,
+          maxMessages: ledgerState.MAX_TOTAL_MESSAGES,
+          maxExpirationSeconds: ledgerState.MAX_EXPIRATION_SECONDS,
           messages,
         };
       },
@@ -149,14 +152,15 @@ export class BBoardAPI implements DeployedBBoardAPI {
    * Attempts to post a given message to the bulletin board.
    *
    * @param message The message to post.
+   * @param expiryTimestamp The timestamp when the message should expire.
    *
    * @remarks
    * This method can fail during local circuit execution if the bulletin board is currently occupied.
    */
-  async post(message: string): Promise<void> {
+  async post(message: string, expiryTimestamp: bigint): Promise<void> {
     this.logger?.info(`postingMessage: ${message}`);
 
-    const txData = await this.deployedContract.callTx.post(message);
+    const txData = await this.deployedContract.callTx.post(message, expiryTimestamp);
 
     this.logger?.trace({
       transactionAdded: {
