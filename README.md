@@ -9,11 +9,13 @@ A Midnight smart contract example demonstrating a simple one-item bulletin board
 
 ## The Assignment
 
+![bboard-cli-screenshot](/images/cli-screenshot-show.png)
+
 This project includes three implementation tracks to extend the basic bulletin board functionality:
 
 - [x] **Track A: Multi-Post Board** — Allow multiple messages to coexist on the board simultaneously
 - [x] **Track B: Timed Posts with Expiration** — Add automatic expiration for messages after a specified time
-- [ ] **Track C: Ownership with Selective Disclosure** — Enable private ownership verification with selective disclosure of message authorship
+- [x] **Track C: Ownership with Selective Disclosure** — Enable private ownership verification with selective disclosure of message authorship
 
 
 ## Project Structure
