@@ -23,6 +23,7 @@ Tests covering core BBoard functionality:
   - Deterministic ledger state generation
   - Initial state initialization
   - Posting and taking down messages
+  - Taking down non-existent messages (error handling)
   - Board state management (open/close)
   - Maximum message limit enforcement
 - Multiple user scenarios (1 tests):
@@ -47,7 +48,7 @@ Tests for expiry timestamp functionality:
 Tests for message ownership verification:
 - Single user scenarios (2 tests):
   - Verifying ownership of own messages
-  - Failing to verify ownership of non-existent messages
+  - Verifying ownership of non-existent messages (error handling)
 - Multiple user scenarios (1 tests):
   - Users cannot prove ownership of others' messages
 

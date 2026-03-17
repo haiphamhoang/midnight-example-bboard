@@ -90,6 +90,16 @@ describe("BBoard - Basic Functionality", () => {
       expect(ledgerState.state).toEqual(State.OPEN);
     });
 
+    it("doesn't let you take down non-existent messages", () => {
+      const simulator = new BBoardSimulator(generateRandomUserKey());
+      simulator.post("A message", generateValidExpiryTimestamp());
+
+      // Attempting to take down a non-existent message should throw an error
+      expect(() => simulator.takeDown(99n)).toThrow(
+        "failed assert: Message does not exist",
+      );
+    });
+
     it("closes the board when MAX_TOTAL_MESSAGES is reached", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
       // MAX_TOTAL_MESSAGES is 10, so post 10 messages to close the board

@@ -81,7 +81,7 @@ export circuit post(newMessage: Opaque<"string">, expiryTimestamp: Uint<64>): []
 }
 
 export circuit takeDown(messageId: Uint<64>): Opaque<"string"> {
-  assert(messageMap.member(disclose(messageId)), "Message id not found");
+  assert(messageMap.member(disclose(messageId)), "Message does not exist");
   const message = messageMap.lookup(disclose(messageId)) as Message;
   const formerMsg = message.content.value;
   const owner = messageOwner.lookup(disclose(messageId)) as Bytes<32>;
@@ -102,7 +102,7 @@ export circuit takeDown(messageId: Uint<64>): Opaque<"string"> {
 }
 
 export circuit provingOwnership(messageId: Uint<64>): Boolean {
-  assert(messageOwner.member(disclose(messageId)), "Message id not found");
+  assert(messageOwner.member(disclose(messageId)), "Message does not exist");
   const owner = messageOwner.lookup(disclose(messageId)) as Bytes<32>;
 
   return owner == disclose(publicKey(localSecretKey(), messageId as Field as Bytes<32>));

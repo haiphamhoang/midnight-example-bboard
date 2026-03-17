@@ -43,9 +43,10 @@ describe("BBoard - Ownership Verification", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
       simulator.post("A message", generateValidExpiryTimestamp());
 
-      // Attempting to prove ownership of a non-existent message should return false
-      const ownsNonExistentMessage = simulator.provingOwnership(99n);
-      expect(ownsNonExistentMessage).toEqual(false);
+      // Attempting to prove ownership of a non-existent message should throw an error
+      expect(() => simulator.provingOwnership(99n)).toThrowError(
+        "failed assert: Message does not exist",
+      );
     });
   });
 
