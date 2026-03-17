@@ -108,6 +108,6 @@ export circuit provingOwnership(messageId: Uint<64>): Boolean {
   return owner == disclose(publicKey(localSecretKey(), messageId as Field as Bytes<32>));
 }
 
-export circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
+export pure circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<3, Bytes<32>>>([pad(32, "bboard:pk:"), sequence, sk]);
 }
