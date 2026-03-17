@@ -126,7 +126,7 @@ const formatRelativeTime = (timestamp: bigint): string => {
   ];
 
   for (const interval of intervals) {
-    const count = Math.floor(absDiff / interval.seconds);
+    const count = Math.round(absDiff / interval.seconds);
     if (count >= 1) {
       const plural = count > 1 ? 's' : '';
       if (diff > 0) {
