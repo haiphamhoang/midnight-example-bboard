@@ -37,11 +37,12 @@ Tests for expiry timestamp functionality:
   - Different expiry timestamps for different messages
   - Validation of expiry timestamp limits
   - Past expiry timestamp handling
-- Multiple user scenarios (4 tests):
+- Multiple user scenarios (5 tests):
   - Non-owner access control
   - Different users with different expiry timestamps
   - Each user taking down their own messages
   - Multiple messages with varying expiry timestamps
+  - Any user can remove expired messages
 
 ### Shared Utilities
 - **[`test-utils.ts`](test-utils.ts)** - Common helper functions:
@@ -64,9 +65,3 @@ npm test -- expiry-timestamp.test.ts
 # Run specific test by name
 npm test -- -t "lets you set a message"
 ```
-
-## Summary
-
-- **Total Tests**: 28
-- **Test Runner**: Vitest
-- All tests are independent and can be run separately

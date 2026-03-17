@@ -44,6 +44,9 @@ describe("BBoard - Multiple Messages", () => {
       const secondMessage = ledgerState.messageMap.lookup(2n);
       expect(secondMessage.id).toEqual(2n);
       expect(secondMessage.content.is_some).toEqual(true);
+
+      // owner hash should be different for the two messages since they were posted in different transactions
+      expect(firstMessage.owner).not.toEqual(secondMessage.owner);
     });
 
     it("lets you take down a specific message when multiple exist", () => {

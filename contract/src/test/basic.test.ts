@@ -50,7 +50,7 @@ describe("BBoard - Basic Functionality", () => {
       expect(initialPrivateState).toEqual({ secretKey: key });
     });
 
-    it("lets you set a message", () => {
+    it("lets you post a message", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
       const initialPrivateState = simulator.getPrivateState();
       const message =

@@ -187,5 +187,25 @@ describe("BBoard - Expiry Timestamp Functionality", () => {
       expect(ledgerState.messageMap.lookup(3n).expiryTimestamp).toEqual(expiry2a);
       expect(ledgerState.messageMap.lookup(4n).expiryTimestamp).toEqual(expiry2b);
     });
+
+    it("lets any user remove expired messages", () => {
+      const user1Key = generateRandomUserKey();
+      const user2Key = generateRandomUserKey();
+      const simulator = new BBoardSimulator(user1Key);
+      
+      // User 1 posts a message with past expiry (already expired)
+      const pastExpiry = generatePastExpiryTimestamp();
+      simulator.post("Expired message from user 1", pastExpiry);
+      simulator.post("Valid message from user 1", generateValidExpiryTimestamp());
+      
+      // User 2 (not the owner) should be able to take down the expired message
+      simulator.switchUser(user2Key);
+      simulator.takeDown(1n);
+      
+      const ledgerState = simulator.getLedger();
+      expect(ledgerState.messageMap.size()).toEqual(1n);
+      expect(ledgerState.messageMap.member(1n)).toEqual(false);
+      expect(ledgerState.messageMap.member(2n)).toEqual(true);
+    });
   });
 });
