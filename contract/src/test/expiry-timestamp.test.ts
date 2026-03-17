@@ -95,10 +95,10 @@ describe("BBoard - Expiry Timestamp Functionality", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
       const pastExpiry = generatePastExpiryTimestamp();
       simulator.post("Message with past expiry", pastExpiry);
-      
+
       // Owner should be able to take down message with past expiry
       simulator.takeDown(1n);
-      
+
       const ledgerState = simulator.getLedger();
       expect(ledgerState.messageMap.size()).toEqual(0n);
     });
@@ -122,20 +122,20 @@ describe("BBoard - Expiry Timestamp Functionality", () => {
 
     it("lets different users post messages with different expiry timestamps", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
-      
+
       // User 1 posts with one expiry
       const expiry1 = generateValidExpiryTimestamp();
       simulator.post("User 1 message", expiry1);
-      
+
       // User 2 posts with a different expiry
       simulator.switchUser(generateRandomUserKey());
       const expiry2 = generateValidExpiryTimestamp() + 7200n; // 2 hours later
       simulator.post("User 2 message", expiry2);
-      
+
       const ledgerState = simulator.getLedger();
       const message1 = ledgerState.messageMap.lookup(1n);
       const message2 = ledgerState.messageMap.lookup(2n);
-      
+
       expect(message1.expiryTimestamp).toEqual(expiry1);
       expect(message2.expiryTimestamp).toEqual(expiry2);
     });
@@ -144,18 +144,18 @@ describe("BBoard - Expiry Timestamp Functionality", () => {
       const user1Key = generateRandomUserKey();
       const user2Key = generateRandomUserKey();
       const simulator = new BBoardSimulator(user1Key);
-      
+
       // User 1 posts a message
       simulator.post("User 1 message", generateValidExpiryTimestamp());
-      
+
       // User 2 posts a message
       simulator.switchUser(user2Key);
       simulator.post("User 2 message", generateValidExpiryTimestamp());
-      
+
       // User 1 takes down their message
       simulator.switchUser(user1Key);
       simulator.takeDown(1n);
-      
+
       const ledgerState = simulator.getLedger();
       expect(ledgerState.messageMap.size()).toEqual(1n);
       expect(ledgerState.messageMap.member(1n)).toEqual(false);
@@ -164,44 +164,55 @@ describe("BBoard - Expiry Timestamp Functionality", () => {
 
     it("handles multiple messages with varying expiry timestamps from different users", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
-      
+
       // User 1 posts 2 messages with different expiries
       const expiry1a = generateValidExpiryTimestamp();
       simulator.post("User 1 - Message 1", expiry1a);
       const expiry1b = generateValidExpiryTimestamp() + 1800n;
       simulator.post("User 1 - Message 2", expiry1b);
-      
+
       // User 2 posts 2 messages with different expiries
       simulator.switchUser(generateRandomUserKey());
       const expiry2a = generateValidExpiryTimestamp() + 3600n;
       simulator.post("User 2 - Message 1", expiry2a);
       const expiry2b = generateValidExpiryTimestamp() + 5400n;
       simulator.post("User 2 - Message 2", expiry2b);
-      
+
       const ledgerState = simulator.getLedger();
       expect(ledgerState.messageMap.size()).toEqual(4n);
-      
+
       // Verify all messages have correct expiry timestamps
-      expect(ledgerState.messageMap.lookup(1n).expiryTimestamp).toEqual(expiry1a);
-      expect(ledgerState.messageMap.lookup(2n).expiryTimestamp).toEqual(expiry1b);
-      expect(ledgerState.messageMap.lookup(3n).expiryTimestamp).toEqual(expiry2a);
-      expect(ledgerState.messageMap.lookup(4n).expiryTimestamp).toEqual(expiry2b);
+      expect(ledgerState.messageMap.lookup(1n).expiryTimestamp).toEqual(
+        expiry1a,
+      );
+      expect(ledgerState.messageMap.lookup(2n).expiryTimestamp).toEqual(
+        expiry1b,
+      );
+      expect(ledgerState.messageMap.lookup(3n).expiryTimestamp).toEqual(
+        expiry2a,
+      );
+      expect(ledgerState.messageMap.lookup(4n).expiryTimestamp).toEqual(
+        expiry2b,
+      );
     });
 
     it("lets any user remove expired messages", () => {
       const user1Key = generateRandomUserKey();
       const user2Key = generateRandomUserKey();
       const simulator = new BBoardSimulator(user1Key);
-      
+
       // User 1 posts a message with past expiry (already expired)
       const pastExpiry = generatePastExpiryTimestamp();
       simulator.post("Expired message from user 1", pastExpiry);
-      simulator.post("Valid message from user 1", generateValidExpiryTimestamp());
-      
+      simulator.post(
+        "Valid message from user 1",
+        generateValidExpiryTimestamp(),
+      );
+
       // User 2 (not the owner) should be able to take down the expired message
       simulator.switchUser(user2Key);
       simulator.takeDown(1n);
-      
+
       const ledgerState = simulator.getLedger();
       expect(ledgerState.messageMap.size()).toEqual(1n);
       expect(ledgerState.messageMap.member(1n)).toEqual(false);

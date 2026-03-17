@@ -19,7 +19,10 @@ import {
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import { describe, it, expect } from "vitest";
-import { generateValidExpiryTimestamp, generateRandomUserKey } from "./test-utils.js";
+import {
+  generateValidExpiryTimestamp,
+  generateRandomUserKey,
+} from "./test-utils.js";
 
 setNetworkId("undeployed" as NetworkId);
 
@@ -101,25 +104,25 @@ describe("BBoard - Multiple Messages", () => {
 
     it("lets multiple users post messages in sequence", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
-      
+
       // User 1 posts 3 messages
       simulator.post("User 1 - Message 1", generateValidExpiryTimestamp());
       simulator.post("User 1 - Message 2", generateValidExpiryTimestamp());
       simulator.post("User 1 - Message 3", generateValidExpiryTimestamp());
-      
+
       // User 2 posts 2 messages
       simulator.switchUser(generateRandomUserKey());
       simulator.post("User 2 - Message 1", generateValidExpiryTimestamp());
       simulator.post("User 2 - Message 2", generateValidExpiryTimestamp());
-      
+
       // User 3 posts 1 message
       simulator.switchUser(generateRandomUserKey());
       simulator.post("User 3 - Message 1", generateValidExpiryTimestamp());
-      
+
       const ledgerState = simulator.getLedger();
       expect(ledgerState.messageMap.size()).toEqual(6n);
       expect(ledgerState.sequence).toEqual(7n);
-      
+
       // Verify all messages exist
       expect(ledgerState.messageMap.member(1n)).toEqual(true);
       expect(ledgerState.messageMap.member(2n)).toEqual(true);
@@ -133,20 +136,20 @@ describe("BBoard - Multiple Messages", () => {
       const user1Key = generateRandomUserKey();
       const user2Key = generateRandomUserKey();
       const simulator = new BBoardSimulator(user1Key);
-      
+
       // User 1 posts 2 messages
       simulator.post("User 1 - Message 1", generateValidExpiryTimestamp());
       simulator.post("User 1 - Message 2", generateValidExpiryTimestamp());
-      
+
       // User 2 posts 2 messages
       simulator.switchUser(user2Key);
       simulator.post("User 2 - Message 1", generateValidExpiryTimestamp());
       simulator.post("User 2 - Message 2", generateValidExpiryTimestamp());
-      
+
       // User 1 takes down their first message
       simulator.switchUser(user1Key);
       simulator.takeDown(1n);
-      
+
       const ledgerState = simulator.getLedger();
       expect(ledgerState.messageMap.size()).toEqual(3n);
       expect(ledgerState.messageMap.member(1n)).toEqual(false);

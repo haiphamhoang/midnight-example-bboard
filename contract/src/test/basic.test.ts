@@ -19,7 +19,10 @@ import {
   setNetworkId,
 } from "@midnight-ntwrk/midnight-js-network-id";
 import { describe, it, expect } from "vitest";
-import { generateValidExpiryTimestamp, generateRandomUserKey } from "./test-utils.js";
+import {
+  generateValidExpiryTimestamp,
+  generateRandomUserKey,
+} from "./test-utils.js";
 import { State } from "../managed/bboard/contract/index.js";
 
 setNetworkId("undeployed" as NetworkId);
@@ -156,7 +159,9 @@ describe("BBoard - Basic Functionality", () => {
       // Attempting to post when closed should fail
       expect(() =>
         simulator.post("This should fail", generateValidExpiryTimestamp()),
-      ).toThrow("failed assert: Attempted to post message, but board is closed");
+      ).toThrow(
+        "failed assert: Attempted to post message, but board is closed",
+      );
     });
 
     it("allows posting again after board reopens", () => {
