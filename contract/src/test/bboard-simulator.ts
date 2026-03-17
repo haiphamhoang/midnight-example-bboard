@@ -15,11 +15,10 @@
 
 import {
   type CircuitContext,
-  QueryContext,
   sampleContractAddress,
   convertFieldToBytes,
   createConstructorContext,
-  CostModel,
+  createCircuitContext,
 } from "@midnight-ntwrk/compact-runtime";
 import {
   Contract,
@@ -44,15 +43,12 @@ export class BBoardSimulator {
     } = this.contract.initialState(
       createConstructorContext({ secretKey }, "0".repeat(64)),
     );
-    this.circuitContext = {
-      currentPrivateState,
+    this.circuitContext = createCircuitContext(
+      sampleContractAddress(),
       currentZswapLocalState,
-      costModel: CostModel.initialCostModel(),
-      currentQueryContext: new QueryContext(
-        currentContractState.data,
-        sampleContractAddress(),
-      ),
-    };
+      currentContractState,
+      currentPrivateState,
+    );
   }
 
   /***
@@ -74,11 +70,12 @@ export class BBoardSimulator {
     return this.circuitContext.currentPrivateState;
   }
 
-  public post(message: string): Ledger {
+  public post(message: string, expiryTimestamp: bigint): Ledger {
     // Update the current context to be the result of executing the circuit.
     this.circuitContext = this.contract.impureCircuits.post(
       this.circuitContext,
       message,
+      expiryTimestamp,
     ).context;
     return ledger(this.circuitContext.currentQueryContext.state);
   }

@@ -25,40 +25,53 @@ export enum State {
 export struct Message {
   id: Uint<64>,
   content: Maybe<Opaque<"string">>,
+  expiryTimestamp: Uint<64>,
   owner: Bytes<32>
 }
 
-export ledger messageMap: Map<Uint<64>, Message>;
-
 export ledger state: State;
+
+export ledger messageMap: Map<Uint<64>, Message>;
 
 export ledger sequence: Counter;
 
-export sealed ledger maxMessages: Uint<32>;
+export sealed ledger MAX_TOTAL_MESSAGES: Uint<32>;
+
+export sealed ledger MAX_EXPIRATION_SECONDS: Uint<64>;
+
 
 constructor() {
   state = State.OPEN;
-  maxMessages = 10;
+  MAX_TOTAL_MESSAGES = 10;
+  MAX_EXPIRATION_SECONDS = 86400; // 24 hours in seconds
   messageMap.resetToDefault();
   sequence.increment(1);
 }
 
 witness localSecretKey(): Bytes<32>;
 
-export circuit post(newMessage: Opaque<"string">): [] {
-  assert(state == State.OPEN, "Attempted to post to an closed board");
+export circuit post(newMessage: Opaque<"string">, expiryTimestamp: Uint<64>): [] {
+  assert(
+    state == State.OPEN, 
+    "Attempted to post message, but board is closed"
+  );
+  assert(
+    kernel.blockTimeGreaterThan(disclose(expiryTimestamp - MAX_EXPIRATION_SECONDS)), 
+    "Expiry Timestamp must be within 24 hours from current block time"
+  );
   messageMap.insert(
     sequence,
     Message { 
       id: disclose(sequence), 
       content: disclose(some<Opaque<"string">>(newMessage)),
+      expiryTimestamp: disclose(expiryTimestamp),
       owner: disclose(publicKey(localSecretKey(), sequence as Field as Bytes<32>))
     }
   );
   sequence.increment(1);
 
   // Close the board when message limit is reached
-  if (messageMap.size() >= maxMessages) {
+  if (messageMap.size() >= MAX_TOTAL_MESSAGES) {
     state = State.CLOSED;
   }
 }
@@ -69,10 +82,14 @@ export circuit takeDown(messageId: Uint<64>): Opaque<"string"> {
   const message = messageMap.lookup(disclose(messageId)) as Message;
   const formerMsg = message.content.value;
 
-  assert(message.owner == publicKey(localSecretKey(), messageId as Field as Bytes<32>), "Attempted to take down message, but not the current owner");
+  assert(
+    message.owner == disclose(publicKey(localSecretKey(), messageId as Field as Bytes<32>)) || 
+    kernel.blockTimeGreaterThan(message.expiryTimestamp), 
+    "Attempted to take down message, but not the current owner or message has not expired"
+  );
   messageMap.remove(disclose(messageId));
 
-  if (state == State.CLOSED && messageMap.size() < maxMessages) {
+  if (state == State.CLOSED && messageMap.size() < MAX_TOTAL_MESSAGES) {
     state = State.OPEN;
   }
 
