@@ -556,7 +556,7 @@ export const run = async (config: Config, testEnv: TestEnvironment, logger: Logg
       }
     }
 
-    const zkConfigProvider = new NodeZkConfigProvider<'post' | 'takeDown'>(config.zkConfigPath);
+    const zkConfigProvider = new NodeZkConfigProvider<'post' | 'takeDown' | 'provingOwnership'>(config.zkConfigPath);
     const providers: BBoardProviders = {
       privateStateProvider: levelPrivateStateProvider<PrivateStateId, BBoardPrivateState>({
         privateStateStoreName: config.privateStateStoreName,
