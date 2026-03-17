@@ -13,7 +13,7 @@ This project includes three implementation tracks to extend the basic bulletin b
 
 - [x] **Track A: Multi-Post Board** — Allow multiple messages to coexist on the board simultaneously
 - [x] **Track B: Timed Posts with Expiration** — Add automatic expiration for messages after a specified time
-- [ ] **Track C: Sealed Ownership with Selective Disclosure** — Enable private ownership verification with selective disclosure of message authorship
+- [ ] **Track C: Ownership with Selective Disclosure** — Enable private ownership verification with selective disclosure of message authorship
 
 
 ## Project Structure
