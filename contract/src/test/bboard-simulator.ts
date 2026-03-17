@@ -97,7 +97,7 @@ export class BBoardSimulator {
     ).result;
   }
 
-  public provingOwnership(messageId: bigint): Boolean {
+  public provingOwnership(messageId: bigint): boolean {
     return this.contract.impureCircuits.provingOwnership(
       this.circuitContext,
       messageId,
