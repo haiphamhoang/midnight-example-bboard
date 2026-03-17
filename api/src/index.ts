@@ -21,7 +21,7 @@
 
 import * as BBoard from '../../contract/src/managed/bboard/contract/index.js';
 
-import { type ContractAddress, convertFieldToBytes } from '@midnight-ntwrk/compact-runtime';
+import { type ContractAddress } from '@midnight-ntwrk/compact-runtime';
 import { type Logger } from 'pino';
 import {
   type BBoardDerivedState,
@@ -34,7 +34,6 @@ import { CompiledBBoardContractContract } from '../../contract/src/index';
 import * as utils from './utils/index.js';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { combineLatest, map, tap, from, type Observable } from 'rxjs';
-import { toHex } from '@midnight-ntwrk/midnight-js-utils';
 import { BBoardPrivateState, createBBoardPrivateState } from '@midnight-ntwrk/bboard-contract';
 
 /** @internal */
@@ -48,6 +47,7 @@ export interface DeployedBBoardAPI {
 
   post: (message: string, expiryTimestamp: bigint) => Promise<void>;
   takeDown: (messageId: bigint) => Promise<void>;
+  provingOwnership: (messageId: bigint) => Promise<boolean>;
 }
 
 /**
@@ -99,30 +99,20 @@ export class BBoardAPI implements DeployedBBoardAPI {
         from(providers.privateStateProvider.get(bboardPrivateStateKey) as Promise<BBoardPrivateState>),
       ],
       // ...and combine them to produce the required derived state.
-      (ledgerState, privateState) => {
+      (ledgerState, _privateState) => {
         // Convert messageMap to array with ownership info
         const messages: Array<{
           id: bigint;
           content: string | undefined;
           expiryTimestamp: bigint;
-          owner: string;
-          isOwner: boolean;
         }> = [];
 
         // Iterate through messageMap using Symbol.iterator
         for (const [, message] of ledgerState.messageMap) {
-          // Compute the public key for this message using its sequence (message.id)
-          const messagePublicKey = BBoard.pureCircuits.publicKey(
-            privateState.secretKey,
-            convertFieldToBytes(32, message.id, 'api/src/index.ts'),
-          );
-
           messages.push({
             id: message.id,
             content: message.content.is_some ? message.content.value : undefined,
             expiryTimestamp: message.expiryTimestamp,
-            owner: toHex(message.owner),
-            isOwner: toHex(message.owner) === toHex(messagePublicKey),
           });
         }
 
@@ -192,6 +182,38 @@ export class BBoardAPI implements DeployedBBoardAPI {
         blockHeight: txData.public.blockHeight,
       },
     });
+  }
+
+  /**
+   * Verifies whether the current user (based on private state) owns a specific message.
+   *
+   * @param messageId The ID of the message to check ownership for.
+   * @returns A `Promise` that resolves to `true` if the current user owns the message, `false` otherwise.
+   *
+   */
+  async provingOwnership(messageId: bigint): Promise<boolean> {
+    this.logger?.info(`provingOwnership: ${messageId}`);
+
+    // The provingOwnership circuit returns a Boolean value directly
+    const txData = await this.deployedContract.callTx.provingOwnership(messageId);
+    const isOwner = txData.private.result;
+
+    this.logger?.trace({
+      transactionAdded: {
+        circuit: 'provingOwnership',
+        txHash: txData.public.txHash,
+        blockHeight: txData.public.blockHeight,
+      },
+    });
+
+    this.logger?.trace({
+      ownershipVerified: {
+        messageId,
+        isOwner,
+      },
+    });
+
+    return isOwner;
   }
 
   /**

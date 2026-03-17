@@ -78,14 +78,14 @@ export type BBoardProviders = MidnightProviders<BBoardCircuitKeys, PrivateStateI
 export type DeployedBBoardContract = FoundContract<BBoardContract>;
 
 /**
- * A type that represents a single message with ownership information.
+ * A type that represents a single message.
+ * Note: The owner field is no longer publicly available as messageOwner is now a private ledger.
+ * Ownership can only be verified through the provingOwnership circuit.
  */
 export type MessageInfo = {
   readonly id: bigint;
   readonly content: string | undefined;
   readonly expiryTimestamp: bigint;
-  readonly owner: string;
-  readonly isOwner: boolean;
 };
 
 /**
