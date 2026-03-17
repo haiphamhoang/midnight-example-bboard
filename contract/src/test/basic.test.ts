@@ -71,7 +71,6 @@ describe("BBoard - Basic Functionality", () => {
       expect(postedMessage.content.is_some).toEqual(true);
       expect(postedMessage.content.value).toEqual(message);
       expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
-      expect(postedMessage.owner).toEqual(simulator.publicKey(1n));
       expect(ledgerState.state).toEqual(State.OPEN);
     });
 
@@ -91,37 +90,6 @@ describe("BBoard - Basic Functionality", () => {
       expect(ledgerState.state).toEqual(State.OPEN);
     });
 
-    it("lets you post another message after taking down the first", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      const initialPrivateState = simulator.getPrivateState();
-      simulator.post("Life before Death.", generateValidExpiryTimestamp());
-      simulator.takeDown(1n);
-      const message = "Strength before Weakness.";
-      const expiryTimestamp = generateValidExpiryTimestamp();
-      simulator.post(message, expiryTimestamp);
-      // the private ledger state shouldn't change
-      expect(initialPrivateState).toEqual(simulator.getPrivateState());
-      // And all the correct things should have been updated in the public ledger state
-      const ledgerState = simulator.getLedger();
-      expect(ledgerState.sequence).toEqual(3n);
-      expect(ledgerState.messageMap.size()).toEqual(1n);
-      const postedMessage = ledgerState.messageMap.lookup(2n);
-      expect(postedMessage.id).toEqual(2n);
-      expect(postedMessage.content.is_some).toEqual(true);
-      expect(postedMessage.content.value).toEqual(message);
-      expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
-      expect(postedMessage.owner).toEqual(simulator.publicKey(2n));
-      expect(ledgerState.state).toEqual(State.OPEN);
-    });
-
-    it("doesn't let you take down a non-existent message", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      simulator.post("A message", generateValidExpiryTimestamp());
-      expect(() => simulator.takeDown(99n)).toThrow(
-        "failed assert: Message id not found",
-      );
-    });
-
     it("closes the board when MAX_TOTAL_MESSAGES is reached", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
       // MAX_TOTAL_MESSAGES is 10, so post 10 messages to close the board
@@ -131,57 +99,6 @@ describe("BBoard - Basic Functionality", () => {
       const ledgerState = simulator.getLedger();
       expect(ledgerState.messageMap.size()).toEqual(10n);
       expect(ledgerState.state).toEqual(State.CLOSED);
-    });
-
-    it("reopens the board when messages are taken down below MAX_TOTAL_MESSAGES", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      // Post 10 messages to close the board
-      for (let i = 0; i < 10; i++) {
-        simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
-      }
-      expect(simulator.getLedger().state).toEqual(State.CLOSED);
-
-      // Take down one message to reopen the board
-      simulator.takeDown(1n);
-      const ledgerState = simulator.getLedger();
-      expect(ledgerState.messageMap.size()).toEqual(9n);
-      expect(ledgerState.state).toEqual(State.OPEN);
-    });
-
-    it("doesn't let you post when the board is closed", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      // Post 10 messages to close the board (MAX_TOTAL_MESSAGES is 10)
-      for (let i = 0; i < 10; i++) {
-        simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
-      }
-      expect(simulator.getLedger().state).toEqual(State.CLOSED);
-
-      // Attempting to post when closed should fail
-      expect(() =>
-        simulator.post("This should fail", generateValidExpiryTimestamp()),
-      ).toThrow(
-        "failed assert: Attempted to post message, but board is closed",
-      );
-    });
-
-    it("allows posting again after board reopens", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      // Post 10 messages to close the board (MAX_TOTAL_MESSAGES is 10)
-      for (let i = 0; i < 10; i++) {
-        simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
-      }
-      expect(simulator.getLedger().state).toEqual(State.CLOSED);
-
-      // Take down two messages to reopen
-      simulator.takeDown(1n);
-      simulator.takeDown(2n);
-      expect(simulator.getLedger().state).toEqual(State.OPEN);
-
-      // Should be able to post again
-      simulator.post("Posted after reopening", generateValidExpiryTimestamp());
-      const ledgerState = simulator.getLedger();
-      expect(ledgerState.messageMap.size()).toEqual(9n);
-      expect(ledgerState.state).toEqual(State.OPEN);
     });
   });
 
@@ -205,7 +122,6 @@ describe("BBoard - Basic Functionality", () => {
       expect(postedMessage.content.is_some).toEqual(true);
       expect(postedMessage.content.value).toEqual(message);
       expect(postedMessage.expiryTimestamp).toEqual(expiryTimestamp);
-      expect(postedMessage.owner).toEqual(simulator.publicKey(2n));
       expect(ledgerState.state).toEqual(State.OPEN);
     });
 

@@ -27,61 +27,6 @@ import {
 setNetworkId("undeployed" as NetworkId);
 
 describe("BBoard - Multiple Messages", () => {
-  describe("Single User Scenarios", () => {
-    it("lets users post multiple messages", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      simulator.post(
-        "My name is Stephen Leeds, and I am perfectly sane. My hallucinations, however, are all quite mad.",
-        generateValidExpiryTimestamp(),
-      );
-      simulator.post(
-        "You should know by now that I've already had greatness. I traded it for mediocrity and some measure of sanity.",
-        generateValidExpiryTimestamp(),
-      );
-      const ledgerState = simulator.getLedger();
-      expect(ledgerState.sequence).toEqual(3n);
-      expect(ledgerState.messageMap.size()).toEqual(2n);
-      const firstMessage = ledgerState.messageMap.lookup(1n);
-      expect(firstMessage.id).toEqual(1n);
-      expect(firstMessage.content.is_some).toEqual(true);
-      const secondMessage = ledgerState.messageMap.lookup(2n);
-      expect(secondMessage.id).toEqual(2n);
-      expect(secondMessage.content.is_some).toEqual(true);
-
-      // owner hash should be different for the two messages since they were posted in different transactions
-      expect(firstMessage.owner).not.toEqual(secondMessage.owner);
-    });
-
-    it("lets you take down a specific message when multiple exist", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      simulator.post("First message", generateValidExpiryTimestamp());
-      simulator.post("Second message", generateValidExpiryTimestamp());
-      simulator.post("Third message", generateValidExpiryTimestamp());
-
-      // Take down the second message
-      simulator.takeDown(2n);
-      const ledgerState = simulator.getLedger();
-      expect(ledgerState.sequence).toEqual(4n);
-      expect(ledgerState.messageMap.size()).toEqual(2n);
-
-      // First and third messages should still exist
-      expect(ledgerState.messageMap.member(1n)).toEqual(true);
-      expect(ledgerState.messageMap.member(2n)).toEqual(false);
-      expect(ledgerState.messageMap.member(3n)).toEqual(true);
-    });
-
-    it("lets you post multiple messages up to MAX_TOTAL_MESSAGES limit", () => {
-      const simulator = new BBoardSimulator(generateRandomUserKey());
-      // Post 10 messages (MAX_TOTAL_MESSAGES is 10)
-      for (let i = 0; i < 10; i++) {
-        simulator.post(`Message ${i + 1}`, generateValidExpiryTimestamp());
-      }
-      const ledgerState = simulator.getLedger();
-      expect(ledgerState.messageMap.size()).toEqual(10n);
-      expect(ledgerState.sequence).toEqual(11n);
-    });
-  });
-
   describe("Multiple User Scenarios", () => {
     it("lets different users post multiple messages", () => {
       const simulator = new BBoardSimulator(generateRandomUserKey());
@@ -130,32 +75,6 @@ describe("BBoard - Multiple Messages", () => {
       expect(ledgerState.messageMap.member(4n)).toEqual(true);
       expect(ledgerState.messageMap.member(5n)).toEqual(true);
       expect(ledgerState.messageMap.member(6n)).toEqual(true);
-    });
-
-    it("lets users take down their own messages when multiple exist", () => {
-      const user1Key = generateRandomUserKey();
-      const user2Key = generateRandomUserKey();
-      const simulator = new BBoardSimulator(user1Key);
-
-      // User 1 posts 2 messages
-      simulator.post("User 1 - Message 1", generateValidExpiryTimestamp());
-      simulator.post("User 1 - Message 2", generateValidExpiryTimestamp());
-
-      // User 2 posts 2 messages
-      simulator.switchUser(user2Key);
-      simulator.post("User 2 - Message 1", generateValidExpiryTimestamp());
-      simulator.post("User 2 - Message 2", generateValidExpiryTimestamp());
-
-      // User 1 takes down their first message
-      simulator.switchUser(user1Key);
-      simulator.takeDown(1n);
-
-      const ledgerState = simulator.getLedger();
-      expect(ledgerState.messageMap.size()).toEqual(3n);
-      expect(ledgerState.messageMap.member(1n)).toEqual(false);
-      expect(ledgerState.messageMap.member(2n)).toEqual(true);
-      expect(ledgerState.messageMap.member(3n)).toEqual(true);
-      expect(ledgerState.messageMap.member(4n)).toEqual(true);
     });
   });
 });

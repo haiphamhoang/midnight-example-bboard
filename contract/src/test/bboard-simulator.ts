@@ -96,4 +96,11 @@ export class BBoardSimulator {
       sequence,
     ).result;
   }
+
+  public provingOwnership(messageId: bigint): Boolean {
+    return this.contract.impureCircuits.provingOwnership(
+      this.circuitContext,
+      messageId,
+    ).result;
+  }
 }
