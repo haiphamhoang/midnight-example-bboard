@@ -228,9 +228,7 @@ const displayLedgerState = async (
         const content = message.content.is_some ? message.content.value : 'none';
         const expiryDate = formatTimestamp(message.expiryTimestamp);
         const relativeTime = formatRelativeTime(message.expiryTimestamp);
-        logger.info(
-          `  [${message.id}] ${content} (expires: ${expiryDate} (${relativeTime}), owner: ${toHex(message.owner)})`,
-        );
+        logger.info(`  [${message.id}] ${content} (expires: ${expiryDate} (${relativeTime}))`);
       }
     }
   }
@@ -266,19 +264,92 @@ const displayDerivedState = (ledgerState: BBoardDerivedState | undefined, logger
     logger.info(`Remaining message capacity: ${ledgerState.maxMessages - BigInt(ledgerState.messages.length)}`);
     logger.info(`Max expiration seconds: ${ledgerState.maxExpirationSeconds}`);
 
-    // Display all messages with ownership info
+    // Display all messages without ownership info (ownership is now private)
     if (ledgerState.messages.length === 0) {
       logger.info(`No messages posted yet`);
     } else {
       logger.info(`Messages:`);
       for (const msg of ledgerState.messages) {
         const content = msg.content ?? 'none';
-        const owner = msg.isOwner ? 'you' : 'not you';
         const expiryDate = formatTimestamp(msg.expiryTimestamp);
         const relativeTime = formatRelativeTime(msg.expiryTimestamp);
-        logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}), owner: ${owner})`);
+        logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}))`);
       }
     }
+  }
+};
+
+/* **********************************************************************
+ * displayDerivedStateWithOwnership: shows the derived state with ownership
+ * information by evaluating the provingOwnership circuit for each message.
+ * This requires circuit evaluation and may take some time.
+ */
+
+const displayDerivedStateWithOwnership = async (
+  ledgerState: BBoardDerivedState | undefined,
+  bboardApi: BBoardAPI,
+  logger: Logger,
+): Promise<void> => {
+  if (ledgerState === undefined) {
+    logger.info(`No bulletin board state currently available`);
+    return;
+  }
+
+  const boardState = ledgerState.state === State.OPEN ? 'open' : 'closed';
+  logger.info(`Current state is: '${boardState}'`);
+  logger.info(`Current sequence is: ${ledgerState.sequence}`);
+  logger.info(`Remaining message capacity: ${ledgerState.maxMessages - BigInt(ledgerState.messages.length)}`);
+  logger.info(`Max expiration seconds: ${ledgerState.maxExpirationSeconds}`);
+
+  if (ledgerState.messages.length === 0) {
+    logger.info(`No messages posted yet`);
+    return;
+  }
+
+  logger.info(`Evaluating ownership for ${ledgerState.messages.length} message(s)...`);
+  logger.info(`This may take a moment as it requires circuit evaluation for each message.`);
+
+  const messagesWithOwnership: Array<{
+    id: bigint;
+    content: string | undefined;
+    expiryTimestamp: bigint;
+    isOwner: boolean;
+  }> = [];
+
+  // Evaluate ownership for each message
+  for (const msg of ledgerState.messages) {
+    logger.info(`  Checking ownership for message ${msg.id}...`);
+    try {
+      // Use the API's provingOwnership method
+      const isOwner = await bboardApi.provingOwnership(msg.id);
+      messagesWithOwnership.push({
+        id: msg.id,
+        content: msg.content,
+        expiryTimestamp: msg.expiryTimestamp,
+        isOwner,
+      });
+      logger.info(`    ✓ Ownership check complete for message ${msg.id}: ${isOwner ? 'you' : 'not you'}`);
+    } catch (error) {
+      logger.info(
+        `    ✗ Failed to check ownership for message ${msg.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Assume not owner if check fails
+      messagesWithOwnership.push({
+        id: msg.id,
+        content: msg.content,
+        expiryTimestamp: msg.expiryTimestamp,
+        isOwner: false,
+      });
+    }
+  }
+
+  logger.info(`Messages with ownership info:`);
+  for (const msg of messagesWithOwnership) {
+    const content = msg.content ?? 'none';
+    const owner = msg.isOwner ? 'you' : 'not you';
+    const expiryDate = formatTimestamp(msg.expiryTimestamp);
+    const relativeTime = formatRelativeTime(msg.expiryTimestamp);
+    logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}), owner: ${owner})`);
   }
 };
 
@@ -296,7 +367,8 @@ You can do one of the following:
   4. Display the current ledger state (known by everyone)
   5. Display the current private state (known only to this DApp instance)
   6. Display the current derived state (known only to this DApp instance)
-  7. Exit
+  7. Display the current derived state with ownership info (requires circuit evaluation)
+  8. Exit
 Which would you like to do? `;
 
 const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logger): Promise<void> => {
@@ -328,13 +400,13 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
           break;
         }
         case '2': {
-          // Show user's messages and ask which to take down
-          const userMessages = currentState?.messages.filter((m) => m.isOwner) ?? [];
-          if (userMessages.length === 0) {
-            logger.info('You have no messages to take down');
+          // Since ownership is now private, we can't filter messages by ownership
+          // Users must attempt to take down a message and the contract will verify ownership
+          if (currentState === undefined || currentState.messages.length === 0) {
+            logger.info('No messages posted yet');
           } else {
-            logger.info('Your messages:');
-            for (const msg of userMessages) {
+            logger.info('All messages:');
+            for (const msg of currentState.messages) {
               const content = msg.content ?? 'none';
               const expiryDate = formatTimestamp(msg.expiryTimestamp);
               const relativeTime = formatRelativeTime(msg.expiryTimestamp);
@@ -342,7 +414,12 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
             }
             const messageIdStr = await rli.question(`Which message ID do you want to take down? `);
             const messageId = BigInt(messageIdStr);
-            await bboardApi.takeDown(messageId);
+            try {
+              await bboardApi.takeDown(messageId);
+              logger.info(`Successfully took down message ${messageId}`);
+            } catch (error) {
+              logger.error(`Failed to take down message: ${error instanceof Error ? error.message : String(error)}`);
+            }
           }
           break;
         }
@@ -356,10 +433,9 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
             logger.info('All messages:');
             for (const msg of currentState.messages) {
               const content = msg.content ?? 'none';
-              const owner = msg.isOwner ? 'you' : 'not you';
               const expiryDate = formatTimestamp(msg.expiryTimestamp);
               const relativeTime = formatRelativeTime(msg.expiryTimestamp);
-              logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}), owner: ${owner})`);
+              logger.info(`  [${msg.id}] ${content} (expires: ${expiryDate} (${relativeTime}))`);
             }
           }
           break;
@@ -374,6 +450,9 @@ const mainLoop = async (providers: BBoardProviders, rli: Interface, logger: Logg
           displayDerivedState(currentState, logger);
           break;
         case '7':
+          await displayDerivedStateWithOwnership(currentState, bboardApi, logger);
+          break;
+        case '8':
           logger.info('Exiting...');
           return;
         default:
